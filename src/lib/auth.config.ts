@@ -34,7 +34,11 @@ export const authConfig = {
       session.user.id = token.formationId
       session.user.email = token.email!
       session.user.name = token.name!
-      session.user.privileges = token.privileges
+      // Defensive fallback: a JWT signed before `privileges` existed on the
+      // token (e.g. a browser session left over from an older deploy) would
+      // otherwise decode with this field `undefined`, and every privilege
+      // check downstream does `.includes(...)` on it.
+      session.user.privileges = token.privileges ?? []
       return session
     },
     authorized({ auth, request }) {
