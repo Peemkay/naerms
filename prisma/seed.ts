@@ -14,6 +14,15 @@ const prisma = new PrismaClient({ adapter })
 const SEED_PASSWORD = "naerms123"
 
 async function main() {
+  // Safe to re-run: this seed has no natural unique key to upsert against
+  // (Formation ids are generated, not chosen), so rather than fake an
+  // upsert, just refuse to double-seed once the sample tree already exists.
+  const existingRoot = await prisma.formation.findFirst({ where: { type: "ROOT" } })
+  if (existingRoot) {
+    console.log("A ROOT formation already exists — skipping seed (already seeded).")
+    return
+  }
+
   console.log("Seeding NAERMS sample NAS tree...")
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10)
 

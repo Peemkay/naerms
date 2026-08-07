@@ -57,8 +57,11 @@ one user per role, and a handful of sample returns with audit history.
 | NA/20001   | UNIT_CLERK       | 520 SR Unit A          |
 | NA/20002   | UNIT_CLERK       | 521 BS Detachment      |
 
-Password for every seeded account: `naerms123`. **Change or remove these
-before any real deployment** — see Security notes below.
+Password for every **freshly** seeded account: `naerms123` (set in
+`prisma/seed.ts`). This is a local-dev-only default — it is **not** the
+current password on any database that's had `npm run db:rotate-passwords`
+run against it (see Security notes). Re-running `npm run db:seed` is safe;
+it no-ops if a ROOT formation already exists rather than erroring.
 
 ### 4. Run it
 
@@ -80,6 +83,7 @@ Admin) based on role.
 | `npm run db:seed` | Re-run just the seed script |
 | `npm run db:studio` | Open Prisma Studio |
 | `npm run db:reset` | Drop, re-migrate, and reseed the database (destructive) |
+| `npm run db:rotate-passwords` | Give every existing account a fresh random password (prints them once — save them) |
 
 ## Access model
 
@@ -123,7 +127,11 @@ with the reporting line. See `prisma/schema.prisma` for the full model.
   `next.config.ts`. Add a Content-Security-Policy there if you introduce any
   third-party scripts.
 - Rotate `AUTH_SECRET` and every seeded password before exposing this beyond
-  a local demo.
+  a local demo — `npm run db:rotate-passwords` handles the passwords in one
+  shot. Production's `AUTH_SECRET` on Vercel is already distinct from the
+  local `.env` value; the shared Neon database's seeded passwords have
+  already been rotated once (ask whoever deployed it for current values —
+  they're not stored anywhere but wherever that output was captured).
 
 ## Explicitly out of scope
 
