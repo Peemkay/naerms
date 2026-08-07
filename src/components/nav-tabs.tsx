@@ -9,8 +9,8 @@ export function NavTabs({ items }: { items: { href: string; label: string }[] })
   const pathname = usePathname()
 
   // Only the single longest matching href wins — otherwise a parent route
-  // like "/admin" would also light up on a more specific child page like
-  // "/admin/users" that matches its own, more specific, tab.
+  // like "/dashboard" would also light up on a more specific child page
+  // like "/dashboard/accounts" that matches its own, more specific, tab.
   const matches = (href: string) => pathname === href || pathname.startsWith(href + "/")
   const bestHref = items
     .filter((item) => matches(item.href))

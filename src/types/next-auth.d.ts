@@ -1,27 +1,22 @@
-import type { Role } from "@prisma/client"
+import type { Privilege } from "@prisma/client"
 import type { DefaultSession } from "next-auth"
 
-// Augments Auth.js's built-in types with the fields NAERMS actually needs
-// on every request: role and formationId drive every access-scope check,
-// so they live on the session/JWT itself rather than requiring a DB hit
-// per request just to know who's asking.
+// There's no separate User anymore — a Formation *is* the account. The
+// session carries the formation's id and privileges directly, since every
+// access-scope and capability check keys off those.
 declare module "next-auth" {
+  // `email`/`name` already exist (optional, nullable) on the base User —
+  // only add the genuinely new field here to avoid a conflicting redeclare.
   interface User {
-    serviceId: string
-    role: Role
-    formationId: string
-    formationName: string
-    rank: string | null
+    privileges: Privilege[]
   }
 
   interface Session {
     user: {
       id: string
-      serviceId: string
-      role: Role
-      formationId: string
-      formationName: string
-      rank: string | null
+      email: string
+      name: string
+      privileges: Privilege[]
     } & DefaultSession["user"]
   }
 }
@@ -32,12 +27,10 @@ declare module "next-auth" {
 // falls back to `JWT`'s `Record<string, unknown>` base for these fields.
 // Augmenting the origin module is what actually merges.
 declare module "@auth/core/jwt" {
+  // `email`/`name` already exist (optional, nullable) on the base JWT —
+  // only add the genuinely new fields here to avoid a conflicting redeclare.
   interface JWT {
-    userId: string
-    serviceId: string
-    role: Role
     formationId: string
-    formationName: string
-    rank: string | null
+    privileges: Privilege[]
   }
 }

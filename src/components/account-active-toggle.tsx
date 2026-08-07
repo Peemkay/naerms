@@ -5,20 +5,20 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { setUserActiveAction } from "@/lib/actions/users"
+import { setAccountActiveAction } from "@/lib/actions/formations"
 
-export function UserActiveToggle({ userId, isActive }: { userId: string; isActive: boolean }) {
+export function AccountActiveToggle({ formationId, isActive }: { formationId: string; isActive: boolean }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="sm"
       disabled={pending}
       onClick={() => {
         startTransition(async () => {
-          const res = await setUserActiveAction(userId, !isActive)
+          const res = await setAccountActiveAction(formationId, !isActive)
           if ("error" in res) {
             toast.error(res.error)
             return
@@ -28,7 +28,7 @@ export function UserActiveToggle({ userId, isActive }: { userId: string; isActiv
         })
       }}
     >
-      {isActive ? "Deactivate" : "Reactivate"}
+      {isActive ? "Deactivate Account" : "Reactivate Account"}
     </Button>
   )
 }

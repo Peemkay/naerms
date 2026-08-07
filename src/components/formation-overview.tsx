@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
+import type { EquipmentCondition, ReturnStatus } from "@prisma/client"
 
 import type { FormationOverviewData } from "@/lib/formation-overview"
 import { countByCondition, countByStatus } from "@/lib/aggregate"
@@ -18,9 +19,19 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 const CONDITIONS = ["SERVICEABLE", "UNSERVICEABLE", "UNDER_REPAIR", "AWAITING_EVACUATION"] as const
 
-export function FormationOverview({ formation, returns }: FormationOverviewData) {
-  const statusCounts = countByStatus(returns)
-  const conditionCounts = countByCondition(returns)
+export function FormationOverview({
+  formation,
+  returnItems,
+  basePath,
+  filterStatus,
+  filterCondition,
+}: FormationOverviewData & {
+  basePath: string
+  filterStatus?: ReturnStatus
+  filterCondition?: EquipmentCondition
+}) {
+  const statusCounts = countByStatus(returnItems)
+  const conditionCounts = countByCondition(returnItems)
 
   const organicRegiments = formation.children.filter((c) => c.type === "SIGNAL_REGIMENT")
   const attachedSignals = formation.children.filter((c) => c.type === "BRIGADE_SIGNALS")
@@ -74,7 +85,7 @@ export function FormationOverview({ formation, returns }: FormationOverviewData)
 
       <div>
         <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          By Workflow Status
+          By Workflow Status — click a card to filter the registry below
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {RETURN_STATUS_FLOW.map((status) => (
@@ -83,6 +94,8 @@ export function FormationOverview({ formation, returns }: FormationOverviewData)
               label={RETURN_STATUS_LABEL[status]}
               value={statusCounts[status]}
               tone={RETURN_STATUS_TONE[status]}
+              href={`${basePath}?status=${status}`}
+              active={filterStatus === status}
             />
           ))}
         </div>
@@ -99,16 +112,29 @@ export function FormationOverview({ formation, returns }: FormationOverviewData)
               label={CONDITION_LABEL[condition]}
               value={conditionCounts[condition]}
               tone={CONDITION_TONE[condition]}
+              href={`${basePath}?condition=${condition}`}
+              active={filterCondition === condition}
             />
           ))}
         </div>
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Returns Registry ({returns.length})
-        </p>
-        <ReturnsTable data={returns.map(toReturnRow)} />
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Returns Registry ({returnItems.length})
+          </p>
+          {(filterStatus || filterCondition) && (
+            <Link href={basePath} className="text-xs text-primary hover:underline">
+              Clear filter
+            </Link>
+          )}
+        </div>
+        <ReturnsTable
+          data={returnItems.map(toReturnRow)}
+          initialStatus={filterStatus}
+          initialCondition={filterCondition}
+        />
       </div>
     </div>
   )
@@ -137,7 +163,7 @@ function FormationList({
             {items.map((item) => (
               <li key={item.id}>
                 <Link
-                  href={`/admin/formations/${item.id}`}
+                  href={`/dashboard/formations/${item.id}`}
                   className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                 >
                   <span>{item.name}</span>

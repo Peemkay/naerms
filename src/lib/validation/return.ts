@@ -47,30 +47,36 @@ export const RETURN_STATUSES = [
 const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).optional().or(z.literal(""))
 
-// The 13 register columns a clerk fills in. formationId/submittedById are
-// derived from the session server-side, never taken from client input.
-export const returnFormSchema = z.object({
-  requestRef: z.string().trim().min(1, "Request ref is required"),
-  auth: z.string().trim().optional().or(z.literal("")),
-  dateIssued: z.string().optional().or(z.literal("")), // yyyy-mm-dd from <input type="date">
-  howDeployed: optionalEnum(DEPLOYMENT_MODES),
-  purposeOfIssue: z.string().trim().optional().or(z.literal("")),
-
+// One equipment line within a request.
+export const returnItemSchema = z.object({
   equipmentName: z.string().trim().min(1, "Equipment name is required"),
   equipmentModel: z.string().trim().optional().or(z.literal("")),
   band: optionalEnum(BANDS),
   equipmentType: optionalEnum(EQUIPMENT_TYPES),
   equipmentSerial: z.string().trim().min(1, "Equipment serial is required"),
   origin: z.string().trim().optional().or(z.literal("")),
-
   condition: optionalEnum(EQUIPMENT_CONDITIONS),
   remarks: z.string().trim().optional().or(z.literal("")),
+})
+
+export type ReturnItemInput = z.infer<typeof returnItemSchema>
+
+// The register-level fields, shared by every item in the request, plus the
+// list of equipment lines. formationId is derived from the session
+// server-side, never taken from client input.
+export const returnFormSchema = z.object({
+  requestRef: z.string().trim().min(1, "Request ref is required"),
+  auth: z.string().trim().optional().or(z.literal("")),
+  dateIssued: z.string().optional().or(z.literal("")), // yyyy-mm-dd from <input type="date">
+  howDeployed: optionalEnum(DEPLOYMENT_MODES),
+  purposeOfIssue: z.string().trim().optional().or(z.literal("")),
+  items: z.array(returnItemSchema).min(1, "Add at least one equipment item"),
 })
 
 export type ReturnFormInput = z.infer<typeof returnFormSchema>
 
 export const statusChangeSchema = z.object({
-  returnId: z.string().min(1),
+  returnItemId: z.string().min(1),
   toStatus: z.enum(RETURN_STATUSES),
   note: z.string().trim().max(1000).optional().or(z.literal("")),
 })

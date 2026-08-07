@@ -8,7 +8,7 @@ type HistoryEntry = {
   toStatus: ReturnStatus
   note: string | null
   changedAt: Date
-  changedBy: { fullName: string; rank: string | null; role: string }
+  changedBy: { name: string }
 }
 
 export function StatusTimeline({ entries }: { entries: HistoryEntry[] }) {
@@ -36,8 +36,7 @@ export function StatusTimeline({ entries }: { entries: HistoryEntry[] }) {
           </div>
           {entry.note && <p className="mt-1 text-sm">{entry.note}</p>}
           <p className="mt-1 text-xs text-muted-foreground">
-            {entry.changedBy.rank ? `${entry.changedBy.rank} ` : ""}
-            {entry.changedBy.fullName} &middot;{" "}
+            {entry.changedBy.name} &middot;{" "}
             {entry.changedAt.toLocaleString("en-GB", {
               day: "2-digit",
               month: "short",

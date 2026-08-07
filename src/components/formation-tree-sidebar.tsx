@@ -9,7 +9,7 @@ import { FORMATION_TYPE_TAG } from "@/lib/formation-labels"
 import type { FormationTreeNode } from "@/lib/formation-tree"
 
 function nodeHref(node: FormationTreeNode, rootId: string) {
-  return node.id === rootId ? "/admin" : `/admin/formations/${node.id}`
+  return node.id === rootId ? "/dashboard" : `/dashboard/formations/${node.id}`
 }
 
 function TreeNode({
@@ -53,20 +53,28 @@ function TreeNode({
   )
 }
 
-export function FormationTreeSidebar({ tree }: { tree: FormationTreeNode }) {
+export function FormationTreeSidebar({
+  tree,
+  canAddFormation,
+}: {
+  tree: FormationTreeNode
+  canAddFormation: boolean
+}) {
   return (
     <nav className="w-64 shrink-0 border-r border-border py-4">
       <div className="flex items-center justify-between px-4 pb-2">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Formations
         </p>
-        <Link
-          href="/formations/new"
-          className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Plus className="size-3" />
-          Add
-        </Link>
+        {canAddFormation && (
+          <Link
+            href="/dashboard/formations/new"
+            className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Plus className="size-3" />
+            Add
+          </Link>
+        )}
       </div>
       <ul>
         <TreeNode node={tree} rootId={tree.id} depth={0} />

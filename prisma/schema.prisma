@@ -1,5 +1,6 @@
 // NAERMS — Nigerian Army Signals Equipment Returns Management System
-// Prisma schema: formation tree, role-based users, equipment returns
+// Prisma schema: formation tree (formations ARE the accounts), privilege-based
+// access, multi-equipment return requests, subtree notifications.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,9 +11,10 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------
-// FORMATION TREE
-// Self-referencing model represents NAS -> NACWC -> Schools/Brigades ->
-// Regiments -> Units. Any level can have children of the level below it.
+// FORMATION TREE — also the account model. There is no separate User:
+// a formation logs in directly (NAWANI email + password) once someone
+// with MANAGE_ACCOUNTS privilege sets that up for it. A formation can
+// exist as a pure org-chart node with no login at all.
 // ---------------------------------------------------------------------
 
 enum FormationType {
@@ -31,6 +33,17 @@ enum FormationRole {
   ATTACHED      // e.g. 521 BS — detached to support another corps brigade
 }
 
+// Individually-grantable capabilities, replacing a fixed role hierarchy.
+// A formation can hold any combination. Granting one requires the granter
+// to (a) hold MANAGE_PRIVILEGES itself and (b) already hold the specific
+// privilege being granted — see src/lib/privileges.ts.
+enum Privilege {
+  MANAGE_FORMATIONS   // create new formations in the tree
+  MANAGE_ACCOUNTS     // set up / reset another formation's login
+  MANAGE_PRIVILEGES   // grant or revoke privileges on another formation
+  VERIFY_RETURNS      // move a return item through the workflow (verify/flag/close/etc.)
+}
+
 model Formation {
   id            String        @id @default(cuid())
   name          String                          // e.g. "521 Brigade Signals"
@@ -46,8 +59,19 @@ model Formation {
   // Kept separate from parentId — attachment is NOT a chain-of-command change.
   attachedTo    String?                          // e.g. "4 Mechanised Infantry Brigade"
 
-  users         User[]
-  returns       EquipmentReturn[]
+  // --- Account (nullable — a formation may have no login yet) ----------
+  email               String?     @unique         // NAWANI address, e.g. "521.bs@army.mil.ng"
+  passwordHash        String?
+  isActive            Boolean     @default(true)
+  privileges          Privilege[]
+
+  // Brute-force lockout: incremented on each failed login, reset on success.
+  failedLoginAttempts Int         @default(0)
+  lockedUntil         DateTime?
+
+  returns             Return[]
+  statusChanges       StatusHistory[]
+  notifications       Notification[]
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -56,51 +80,11 @@ model Formation {
 }
 
 // ---------------------------------------------------------------------
-// USERS & ROLES
-// Role scope is resolved relative to the user's own formationId by
-// walking the tree — no hardcoded formation lists.
+// RETURNS — one Return is one register submission (one Request Ref),
+// which can bundle multiple equipment items.
 // ---------------------------------------------------------------------
 
-enum Role {
-  UNIT_CLERK          // submit/edit own unit's returns
-  REGIMENT_OFFICER    // view/verify own regiment + subordinate units
-  BRIGADE_ADMIN       // view/verify own brigade + everything below it
-  COMMAND_ADMIN       // e.g. NACWC-level oversight
-  NAS_ADMIN           // full system access, top of tree
-}
-
-model User {
-  id            String     @id @default(cuid())
-  serviceId     String     @unique          // NA service number, used as login
-  fullName      String
-  rank          String?
-  role          Role
-  formationId   String
-  formation     Formation  @relation(fields: [formationId], references: [id])
-
-  passwordHash  String
-  isActive      Boolean    @default(true)
-
-  // Brute-force lockout: incremented on each failed login, reset on success.
-  // Once it crosses the threshold (see src/lib/auth.ts), lockedUntil is set
-  // and further attempts are rejected until it passes, win or lose.
-  failedLoginAttempts Int      @default(0)
-  lockedUntil         DateTime?
-
-  submittedReturns EquipmentReturn[] @relation("SubmittedBy")
-  statusChanges    StatusHistory[]
-
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  @@index([formationId])
-}
-
-// ---------------------------------------------------------------------
-// EQUIPMENT RETURNS — matches the Sigs returns register columns
-// ---------------------------------------------------------------------
-
-// Workflow status — where the return is in the review/approval chain
+// Workflow status — where a return item is in the review/approval chain
 enum ReturnStatus {
   PENDING       // submitted, awaiting verification
   VERIFIED      // confirmed accurate by next level up
@@ -118,16 +102,33 @@ enum EquipmentCondition {
   AWAITING_EVACUATION
 }
 
-model EquipmentReturn {
+model Return {
   id               String        @id @default(cuid())
-  serialNo         Int                              // row "Serial" in the register
-  requestRef       String                           // Request Ref
+  requestRef       String                           // Request Ref — shared by every item below
   auth             String?                          // Auth
   dateIssued       DateTime?
   formationId      String                           // Fmn/Unit submitting
   formation        Formation     @relation(fields: [formationId], references: [id])
   howDeployed      String?                          // How Depl
   purposeOfIssue   String?
+
+  items            ReturnItem[]
+  notifications    Notification[]
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([formationId])
+}
+
+// One physical equipment line within a Return. What used to be the whole
+// "EquipmentReturn" row is now one of these — a Return is the register
+// entry, a ReturnItem is one equipment line on it.
+model ReturnItem {
+  id               String        @id @default(cuid())
+  returnId         String
+  return           Return        @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  lineNo           Int                              // position within the request (1, 2, 3…)
 
   equipmentName    String
   equipmentModel   String?
@@ -140,15 +141,12 @@ model EquipmentReturn {
   condition        EquipmentCondition?                          // physical/serviceability state
   remarks          String?
 
-  submittedById    String
-  submittedBy      User          @relation("SubmittedBy", fields: [submittedById], references: [id])
-
   statusHistory    StatusHistory[]
 
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  @@index([formationId])
+  @@index([returnId])
   @@index([status])
   @@index([equipmentSerial])
 }
@@ -156,14 +154,34 @@ model EquipmentReturn {
 // Full audit trail — required for command-level accountability
 model StatusHistory {
   id           String           @id @default(cuid())
-  returnId     String
-  return       EquipmentReturn  @relation(fields: [returnId], references: [id])
+  returnItemId String
+  returnItem   ReturnItem       @relation(fields: [returnItemId], references: [id], onDelete: Cascade)
   changedById  String
-  changedBy    User             @relation(fields: [changedById], references: [id])
+  changedBy    Formation        @relation(fields: [changedById], references: [id])
   fromStatus   ReturnStatus?
   toStatus     ReturnStatus
   note         String?
   changedAt    DateTime         @default(now())
 
-  @@index([returnId])
+  @@index([returnItemId])
+}
+
+// ---------------------------------------------------------------------
+// NOTIFICATIONS — when a formation submits a Return, every formation in
+// its own subtree (its subordinates) gets one. A leaf UNIT's returns
+// therefore usually notify no one; a Brigade/Command's returns fan out
+// to everything below it. See src/lib/actions/returns.ts.
+// ---------------------------------------------------------------------
+
+model Notification {
+  id           String     @id @default(cuid())
+  formationId  String                              // recipient
+  formation    Formation  @relation(fields: [formationId], references: [id])
+  returnId     String
+  return       Return     @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  message      String
+  isRead       Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@index([formationId, isRead])
 }

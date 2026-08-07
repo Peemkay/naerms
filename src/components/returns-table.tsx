@@ -36,8 +36,9 @@ import {
 import { cn } from "@/lib/utils"
 
 export type ReturnRow = {
-  id: string
-  serialNo: number
+  id: string // ReturnItem id
+  returnId: string // parent Return id — links go here
+  lineNo: number
   requestRef: string
   formationName: string
   equipmentName: string
@@ -47,7 +48,6 @@ export type ReturnRow = {
   status: ReturnStatus
   condition: EquipmentCondition | null
   dateIssued: string | null // ISO "yyyy-MM-dd" — sorts correctly as plain text
-  submittedByName: string
 }
 
 const features = tableFeatures({
@@ -63,11 +63,15 @@ const features = tableFeatures({
 const helper = createColumnHelper<typeof features, ReturnRow>()
 
 const columns = helper.columns([
-  helper.accessor("serialNo", {
-    header: "Serial",
-    cell: (info) => <span className="tabular-nums text-muted-foreground">{info.getValue()}</span>,
+  helper.accessor("requestRef", {
+    header: "Request Ref",
+    cell: (info) => (
+      <div>
+        <div className="font-medium">{info.getValue()}</div>
+        <div className="text-xs text-muted-foreground">Line {info.row.original.lineNo}</div>
+      </div>
+    ),
   }),
-  helper.accessor("requestRef", { header: "Request Ref" }),
   helper.accessor("formationName", { header: "Fmn/Unit" }),
   helper.accessor("equipmentName", {
     header: "Equipment",
@@ -100,6 +104,7 @@ const columns = helper.columns([
   }),
   helper.accessor("condition", {
     header: "Condition",
+    filterFn: "equalsString",
     cell: (info) => {
       const value = info.getValue()
       return value ? (
@@ -114,7 +119,7 @@ const columns = helper.columns([
     header: "",
     cell: (info) => (
       <Link
-        href={`/returns/${info.row.original.id}`}
+        href={`/dashboard/returns/${info.row.original.returnId}`}
         className="text-sm font-medium text-primary hover:underline"
       >
         View
@@ -123,15 +128,31 @@ const columns = helper.columns([
   }),
 ])
 
-export function ReturnsTable({ data }: { data: ReturnRow[] }) {
+export function ReturnsTable({
+  data,
+  initialStatus,
+  initialCondition,
+}: {
+  data: ReturnRow[]
+  initialStatus?: ReturnStatus
+  initialCondition?: EquipmentCondition
+}) {
   const [globalFilter, setGlobalFilter] = useState("")
   const stableData = useMemo(() => data, [data])
+  const initialColumnFilters = useMemo(
+    () => [
+      ...(initialStatus ? [{ id: "status", value: initialStatus }] : []),
+      ...(initialCondition ? [{ id: "condition", value: initialCondition }] : []),
+    ],
+    [initialStatus, initialCondition]
+  )
 
   const table = useTable(
     {
       features,
       columns,
       data: stableData,
+      initialState: { columnFilters: initialColumnFilters },
       state: { globalFilter },
       onGlobalFilterChange: setGlobalFilter,
       globalFilterFn: "includesString",
@@ -172,7 +193,7 @@ export function ReturnsTable({ data }: { data: ReturnRow[] }) {
           </SelectContent>
         </Select>
         <span className="ml-auto text-xs text-muted-foreground">
-          {table.getRowModel().rows.length} of {data.length} returns
+          {table.getRowModel().rows.length} of {data.length} items
         </span>
       </div>
 

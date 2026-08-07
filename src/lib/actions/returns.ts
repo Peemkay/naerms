@@ -7,32 +7,33 @@ import { prisma } from "@/lib/prisma"
 import { requireSession } from "@/lib/session"
 import { getVisibleFormationIds } from "@/lib/scope"
 import { getDefaultOriginForFormation } from "@/lib/formation"
-import { canChangeStatus } from "@/lib/roles"
-import { returnFormSchema, statusChangeSchema, type ReturnFormInput } from "@/lib/validation/return"
+import { returnFormSchema, statusChangeSchema, type ReturnItemInput } from "@/lib/validation/return"
 
 type ActionResult =
-  | { success: true; id?: string }
+  | { success: true; id: string }
   | { error: string; fieldErrors?: Record<string, string[] | undefined> }
 
-function toReturnData(input: ReturnFormInput) {
+function toItemData(item: ReturnItemInput, lineNo: number) {
   return {
-    requestRef: input.requestRef,
-    auth: input.auth || null,
-    dateIssued: input.dateIssued ? new Date(input.dateIssued) : null,
-    howDeployed: input.howDeployed || null,
-    purposeOfIssue: input.purposeOfIssue || null,
-    equipmentName: input.equipmentName,
-    equipmentModel: input.equipmentModel || null,
-    band: input.band || null,
-    equipmentType: input.equipmentType || null,
-    equipmentSerial: input.equipmentSerial,
-    origin: input.origin || null,
-    condition: input.condition || null,
-    remarks: input.remarks || null,
+    lineNo,
+    equipmentName: item.equipmentName,
+    equipmentModel: item.equipmentModel || null,
+    band: item.band || null,
+    equipmentType: item.equipmentType || null,
+    equipmentSerial: item.equipmentSerial,
+    origin: item.origin || null,
+    condition: item.condition || null,
+    remarks: item.remarks || null,
   }
 }
 
-/** Creates a return under the caller's own formation. */
+/**
+ * Creates a Return (one register submission) with its equipment items, under
+ * the caller's own formation. Every formation in the caller's own subtree
+ * (its subordinates — never itself, never its superiors) gets notified: a
+ * leaf UNIT's request notifies no one, a Brigade's fans out to everything
+ * below it.
+ */
 export async function createReturnAction(values: unknown): Promise<ActionResult> {
   const session = await requireSession()
   const parsed = returnFormSchema.safeParse(values)
@@ -40,34 +41,44 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
     return { error: "Check the highlighted fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors }
   }
 
-  const formationId = session.user.formationId
+  const formationId = session.user.id
+  const defaultOrigin = await getDefaultOriginForFormation(formationId)
 
-  // Register-style serial numbers are sequential per formation. Simple
-  // read-then-write; a rare race under concurrent submission from the same
-  // unit would need a DB-level sequence, out of scope for this stage.
-  const last = await prisma.equipmentReturn.findFirst({
-    where: { formationId },
-    orderBy: { serialNo: "desc" },
-    select: { serialNo: true },
-  })
-
-  const origin = parsed.data.origin || (await getDefaultOriginForFormation(formationId)) || null
-
-  const created = await prisma.equipmentReturn.create({
+  const created = await prisma.return.create({
     data: {
-      ...toReturnData(parsed.data),
-      origin,
-      serialNo: (last?.serialNo ?? 0) + 1,
+      requestRef: parsed.data.requestRef,
+      auth: parsed.data.auth || null,
+      dateIssued: parsed.data.dateIssued ? new Date(parsed.data.dateIssued) : null,
       formationId,
-      submittedById: session.user.id,
+      howDeployed: parsed.data.howDeployed || null,
+      purposeOfIssue: parsed.data.purposeOfIssue || null,
+      items: {
+        create: parsed.data.items.map((item, index) => ({
+          ...toItemData(item, index + 1),
+          origin: item.origin || defaultOrigin || null,
+        })),
+      },
     },
   })
 
-  revalidatePath("/portal")
+  // Notify subordinates only — descendants minus the submitter itself.
+  const subtree = await getVisibleFormationIds(formationId)
+  const recipients = subtree.filter((id) => id !== formationId)
+  if (recipients.length > 0) {
+    await prisma.notification.createMany({
+      data: recipients.map((recipientId) => ({
+        formationId: recipientId,
+        returnId: created.id,
+        message: `${session.user.name} submitted request ${parsed.data.requestRef}`,
+      })),
+    })
+  }
+
+  revalidatePath("/dashboard")
   return { success: true, id: created.id }
 }
 
-/** Edits a return — only while PENDING, only for the caller's own formation. */
+/** Edits a return — only while every item is still PENDING, own formation only. */
 export async function updateReturnAction(returnId: string, values: unknown): Promise<ActionResult> {
   const session = await requireSession()
   const parsed = returnFormSchema.safeParse(values)
@@ -75,30 +86,50 @@ export async function updateReturnAction(returnId: string, values: unknown): Pro
     return { error: "Check the highlighted fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors }
   }
 
-  const existing = await prisma.equipmentReturn.findUnique({ where: { id: returnId } })
+  const existing = await prisma.return.findUnique({ where: { id: returnId }, include: { items: true } })
   if (!existing) return { error: "Return not found." }
-  if (existing.formationId !== session.user.formationId) {
+  if (existing.formationId !== session.user.id) {
     return { error: "You can only edit returns submitted by your own formation." }
   }
-  if (existing.status !== "PENDING") {
-    return { error: "Only pending returns can still be edited." }
+  if (existing.items.some((item) => item.status !== "PENDING")) {
+    return { error: "Only requests where every item is still pending can be edited." }
   }
 
-  await prisma.equipmentReturn.update({
-    where: { id: returnId },
-    data: toReturnData(parsed.data),
-  })
+  const defaultOrigin = await getDefaultOriginForFormation(session.user.id)
 
-  revalidatePath("/portal")
-  revalidatePath(`/returns/${returnId}`)
-  return { success: true }
+  await prisma.$transaction([
+    prisma.return.update({
+      where: { id: returnId },
+      data: {
+        requestRef: parsed.data.requestRef,
+        auth: parsed.data.auth || null,
+        dateIssued: parsed.data.dateIssued ? new Date(parsed.data.dateIssued) : null,
+        howDeployed: parsed.data.howDeployed || null,
+        purposeOfIssue: parsed.data.purposeOfIssue || null,
+      },
+    }),
+    prisma.returnItem.deleteMany({ where: { returnId } }),
+    ...parsed.data.items.map((item, index) =>
+      prisma.returnItem.create({
+        data: {
+          returnId,
+          ...toItemData(item, index + 1),
+          origin: item.origin || defaultOrigin || null,
+        },
+      })
+    ),
+  ])
+
+  revalidatePath("/dashboard")
+  revalidatePath(`/dashboard/returns/${returnId}`)
+  return { success: true, id: returnId }
 }
 
-/** Moves a return through the workflow and logs it to StatusHistory. */
+/** Moves a return item through the workflow and logs it to StatusHistory. */
 export async function changeStatusAction(values: unknown): Promise<ActionResult> {
   const session = await requireSession()
-  if (!canChangeStatus(session.user.role)) {
-    return { error: "Your role cannot change return status." }
+  if (!session.user.privileges.includes("VERIFY_RETURNS")) {
+    return { error: "Your formation cannot change return status." }
   }
 
   const parsed = statusChangeSchema.safeParse(values)
@@ -106,22 +137,25 @@ export async function changeStatusAction(values: unknown): Promise<ActionResult>
     return { error: "Check the highlighted fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors }
   }
 
-  const existing = await prisma.equipmentReturn.findUnique({ where: { id: parsed.data.returnId } })
-  if (!existing) return { error: "Return not found." }
+  const existing = await prisma.returnItem.findUnique({
+    where: { id: parsed.data.returnItemId },
+    include: { return: true },
+  })
+  if (!existing) return { error: "Return item not found." }
 
-  const visibleIds = await getVisibleFormationIds(session.user.formationId)
-  if (!visibleIds.includes(existing.formationId)) {
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  if (!visibleIds.includes(existing.return.formationId)) {
     return { error: "That return is outside your formation's scope." }
   }
 
   await prisma.$transaction([
-    prisma.equipmentReturn.update({
+    prisma.returnItem.update({
       where: { id: existing.id },
       data: { status: parsed.data.toStatus },
     }),
     prisma.statusHistory.create({
       data: {
-        returnId: existing.id,
+        returnItemId: existing.id,
         changedById: session.user.id,
         fromStatus: existing.status,
         toStatus: parsed.data.toStatus,
@@ -130,8 +164,7 @@ export async function changeStatusAction(values: unknown): Promise<ActionResult>
     }),
   ])
 
-  revalidatePath("/admin")
-  revalidatePath("/portal")
-  revalidatePath(`/returns/${existing.id}`)
-  return { success: true }
+  revalidatePath("/dashboard")
+  revalidatePath(`/dashboard/returns/${existing.returnId}`)
+  return { success: true, id: existing.returnId }
 }

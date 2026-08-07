@@ -12,6 +12,13 @@ export const CREATABLE_FORMATION_TYPES = [
 
 export const FORMATION_ROLES = ["OPERATIONAL", "SUPPORT", "ATTACHED"] as const
 
+export const PRIVILEGE_VALUES = [
+  "MANAGE_FORMATIONS",
+  "MANAGE_ACCOUNTS",
+  "MANAGE_PRIVILEGES",
+  "VERIFY_RETURNS",
+] as const
+
 export const formationFormSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required"),
@@ -20,10 +27,30 @@ export const formationFormSchema = z
     // "" (not absent) is what an unset <Select> submits — see returnFormSchema.
     role: z.enum(FORMATION_ROLES).optional().or(z.literal("")),
     attachedTo: z.string().trim().optional().or(z.literal("")),
+    // Optional account setup, done in the same step as creating the formation.
+    email: z.string().trim().toLowerCase().email("Enter a valid email").optional().or(z.literal("")),
+    password: z.string().min(8, "At least 8 characters").optional().or(z.literal("")),
+    privileges: z.array(z.enum(PRIVILEGE_VALUES)).default([]),
   })
   .refine((data) => data.type !== "BRIGADE_SIGNALS" || !!data.attachedTo, {
     message: "Brigade Signals units must record which formation they support.",
     path: ["attachedTo"],
   })
+  .refine((data) => !data.email === !data.password, {
+    message: "Provide both an email and a password, or leave both blank.",
+    path: ["password"],
+  })
 
 export type FormationFormInput = z.infer<typeof formationFormSchema>
+
+// For managing an *existing* formation's account separately from creation.
+export const accountFormSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+  password: z.string().min(8, "At least 8 characters"),
+})
+
+export type AccountFormInput = z.infer<typeof accountFormSchema>
+
+export const privilegesFormSchema = z.object({
+  privileges: z.array(z.enum(PRIVILEGE_VALUES)).default([]),
+})

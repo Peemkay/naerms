@@ -20,10 +20,10 @@ import { RETURN_STATUS_FLOW, RETURN_STATUS_LABEL } from "@/lib/status"
 import { changeStatusAction } from "@/lib/actions/returns"
 
 export function StatusChangeForm({
-  returnId,
+  returnItemId,
   currentStatus,
 }: {
-  returnId: string
+  returnItemId: string
   currentStatus: ReturnStatus
 }) {
   const router = useRouter()
@@ -37,7 +37,7 @@ export function StatusChangeForm({
       onFormSubmit={(values) => {
         setFormError(null)
         startTransition(async () => {
-          const res = await changeStatusAction({ returnId, ...values })
+          const res = await changeStatusAction({ returnItemId, ...values })
           if ("error" in res) {
             setFormError(res.error)
             if (res.fieldErrors) setErrors(res.fieldErrors as Record<string, string | string[]>)

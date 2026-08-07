@@ -14,29 +14,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        serviceId: { label: "Service ID", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(raw) {
         const parsed = loginSchema.safeParse(raw)
         if (!parsed.success) return null
-        const { serviceId, password } = parsed.data
+        const { email, password } = parsed.data
 
-        const user = await prisma.user.findUnique({
-          where: { serviceId },
-          include: { formation: { select: { name: true } } },
-        })
-        if (!user || !user.isActive) return null
+        const formation = await prisma.formation.findUnique({ where: { email } })
+        // No account set up yet, deactivated, or never given a password.
+        if (!formation || !formation.isActive || !formation.passwordHash) return null
 
-        // Locked accounts fail closed regardless of password correctness —
-        // don't let a correct password reset the clock early.
-        if (user.lockedUntil && user.lockedUntil > new Date()) return null
+        if (formation.lockedUntil && formation.lockedUntil > new Date()) return null
 
-        const passwordValid = await bcrypt.compare(password, user.passwordHash)
+        const passwordValid = await bcrypt.compare(password, formation.passwordHash)
         if (!passwordValid) {
-          const attempts = user.failedLoginAttempts + 1
-          await prisma.user.update({
-            where: { id: user.id },
+          const attempts = formation.failedLoginAttempts + 1
+          await prisma.formation.update({
+            where: { id: formation.id },
             data: {
               failedLoginAttempts: attempts,
               lockedUntil:
@@ -48,21 +44,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null
         }
 
-        if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-          await prisma.user.update({
-            where: { id: user.id },
+        if (formation.failedLoginAttempts > 0 || formation.lockedUntil) {
+          await prisma.formation.update({
+            where: { id: formation.id },
             data: { failedLoginAttempts: 0, lockedUntil: null },
           })
         }
 
         return {
-          id: user.id,
-          serviceId: user.serviceId,
-          name: user.fullName,
-          rank: user.rank,
-          role: user.role,
-          formationId: user.formationId,
-          formationName: user.formation.name,
+          id: formation.id,
+          email: formation.email!,
+          name: formation.name,
+          privileges: formation.privileges,
         }
       },
     }),

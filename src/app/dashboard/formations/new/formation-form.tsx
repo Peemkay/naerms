@@ -4,11 +4,13 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { toast } from "sonner"
+import type { Privilege } from "@prisma/client"
 
 import { Form } from "@/components/ui/form"
 import { Field, FieldLabel, FieldError, FieldDescription } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -22,21 +24,25 @@ import {
   formationFormSchema,
 } from "@/lib/validation/formation"
 import { FORMATION_ROLE_LABEL, FORMATION_TYPE_LABEL } from "@/lib/formation-labels"
+import { PRIVILEGE_DESCRIPTIONS, PRIVILEGE_LABELS } from "@/lib/privileges"
 import { createFormationAction } from "@/lib/actions/formations"
 import type { FormationPickerOption } from "@/lib/formation"
 
 export function FormationForm({
   options,
   defaultParentId,
+  assignablePrivileges,
 }: {
   options: FormationPickerOption[]
   defaultParentId: string
+  assignablePrivileges: Privilege[]
 }) {
   const router = useRouter()
   const [errors, setErrors] = useState<Record<string, string | string[]>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [type, setType] = useState<string | undefined>(undefined)
+  const [privileges, setPrivileges] = useState<Privilege[]>([])
   const [formKey, setFormKey] = useState(0)
 
   return (
@@ -45,7 +51,7 @@ export function FormationForm({
       errors={errors}
       onFormSubmit={(values) => {
         setFormError(null)
-        const result = formationFormSchema.safeParse(values)
+        const result = formationFormSchema.safeParse({ ...values, privileges })
         if (!result.success) {
           setErrors(z.flattenError(result.error).fieldErrors as Record<string, string | string[]>)
           return
@@ -60,6 +66,7 @@ export function FormationForm({
           }
           toast.success(`"${result.data.name}" added to the formation tree.`)
           setType(undefined)
+          setPrivileges([])
           setFormKey((k) => k + 1)
           router.refresh()
         })
@@ -139,6 +146,47 @@ export function FormationForm({
           </FieldDescription>
           <FieldError />
         </Field>
+      )}
+
+      <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+        <Field name="email">
+          <FieldLabel>NAWANI Email (optional)</FieldLabel>
+          <Input name="email" type="email" placeholder="e.g. 522.sr@army.mil.ng" />
+          <FieldError />
+        </Field>
+        <Field name="password">
+          <FieldLabel>Initial Password</FieldLabel>
+          <Input name="password" type="password" />
+          <FieldDescription>Leave both blank to create the formation without a login yet.</FieldDescription>
+          <FieldError />
+        </Field>
+      </div>
+
+      {assignablePrivileges.length > 0 && (
+        <div className="border-t border-border pt-4">
+          <p className="mb-2 text-sm font-medium">Privileges</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            You can only grant privileges you hold yourself.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {assignablePrivileges.map((p) => (
+              <label key={p} className="flex cursor-pointer items-start gap-2 text-sm">
+                <Checkbox
+                  checked={privileges.includes(p)}
+                  onCheckedChange={(checked) =>
+                    setPrivileges((prev) => (checked ? [...prev, p] : prev.filter((x) => x !== p)))
+                  }
+                />
+                <span>
+                  <span className="font-medium">{PRIVILEGE_LABELS[p]}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {PRIVILEGE_DESCRIPTIONS[p]}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
       )}
 
       {formError && (

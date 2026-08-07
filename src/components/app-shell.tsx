@@ -2,10 +2,12 @@ import Link from "next/link"
 import { Radio, Plus } from "lucide-react"
 
 import { auth } from "@/lib/auth"
+import { getRecentNotifications, getUnreadNotificationCount } from "@/lib/notifications"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SignOutButton } from "@/components/sign-out-button"
+import { NotificationBell } from "@/components/notification-bell"
 import { Button } from "@/components/ui/button"
-import { ROLE_LABELS } from "@/lib/roles"
+import { PRIVILEGE_LABELS } from "@/lib/privileges"
 
 export async function AppShell({
   children,
@@ -16,6 +18,10 @@ export async function AppShell({
 }) {
   const session = await auth()
   const user = session?.user
+
+  const [notifications, unreadCount] = user
+    ? await Promise.all([getRecentNotifications(user.id), getUnreadNotificationCount(user.id)])
+    : [[], 0]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -33,27 +39,41 @@ export async function AppShell({
           <div className="ml-auto flex items-center gap-3">
             {user && (
               <div className="hidden text-right leading-tight sm:block">
-                <p className="text-sm font-medium">
-                  {user.rank ? `${user.rank} ` : ""}
-                  {user.name}
-                </p>
+                <p className="text-sm font-medium">{user.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {user.formationName} &middot; {ROLE_LABELS[user.role]}
+                  {user.privileges.length > 0
+                    ? user.privileges.map((p) => PRIVILEGE_LABELS[p]).join(" · ")
+                    : "No privileges assigned"}
                 </p>
               </div>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              render={
-                <Link href="/formations/new">
-                  <Plus className="size-3.5" />
-                  <span className="hidden sm:inline">Add Formation</span>
-                </Link>
-              }
-            />
+            {user?.privileges.includes("MANAGE_FORMATIONS") && (
+              <Button
+                variant="outline"
+                size="sm"
+                render={
+                  <Link href="/dashboard/formations/new">
+                    <Plus className="size-3.5" />
+                    <span className="hidden sm:inline">Add Formation</span>
+                  </Link>
+                }
+              />
+            )}
+            {user && (
+              <NotificationBell
+                notifications={notifications.map((n) => ({
+                  id: n.id,
+                  message: n.message,
+                  isRead: n.isRead,
+                  createdAt: n.createdAt,
+                  returnId: n.returnId,
+                  requestRef: n.return.requestRef,
+                }))}
+                unreadCount={unreadCount}
+              />
+            )}
             <ThemeToggle />
-            <SignOutButton />
+            {user && <SignOutButton />}
           </div>
         </div>
       </header>

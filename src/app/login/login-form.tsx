@@ -32,11 +32,12 @@ export function LoginForm() {
         })
       }}
     >
-      <Field name="serviceId">
-        <FieldLabel>Service ID</FieldLabel>
+      <Field name="email">
+        <FieldLabel>NAWANI Email</FieldLabel>
         <Input
-          name="serviceId"
-          placeholder="NA/00000"
+          name="email"
+          type="email"
+          placeholder="521.bs@army.mil.ng"
           autoComplete="username"
           autoFocus
         />

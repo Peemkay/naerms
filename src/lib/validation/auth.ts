@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const loginSchema = z.object({
-  serviceId: z.string().trim().min(1, "Service ID is required"),
+  email: z.string().trim().toLowerCase().email("Enter a valid NAWANI email address"),
   password: z.string().min(1, "Password is required"),
 })
 

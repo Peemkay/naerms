@@ -1,11 +1,14 @@
 import type { NextAuthConfig } from "next-auth"
-import { ADMIN_ROLES } from "@/lib/roles"
 
 // Edge-safe half of the Auth.js config. This is the part Next.js Middleware
 // loads (Middleware runs on the Edge runtime, which can't load Prisma's
 // native engine or bcrypt) — so no `authorize()` / DB / bcrypt calls here.
 // The Credentials provider itself lives in `auth.ts`, which only ever runs
 // in the Node runtime (route handlers, server components, server actions).
+//
+// There's no role tier to route on anymore — every formation lands on the
+// same dashboard, and individual actions gate themselves on privileges. So
+// this callback only has one job: logged in or not.
 export const authConfig = {
   pages: {
     signIn: "/login",
@@ -17,22 +20,21 @@ export const authConfig = {
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.userId = user.id as string
-        token.serviceId = user.serviceId
-        token.role = user.role
-        token.formationId = user.formationId
-        token.formationName = user.formationName
-        token.rank = user.rank
+        token.formationId = user.id as string
+        token.email = user.email
+        token.name = user.name
+        token.privileges = user.privileges
       }
       return token
     },
     session({ session, token }) {
-      session.user.id = token.userId
-      session.user.serviceId = token.serviceId
-      session.user.role = token.role
-      session.user.formationId = token.formationId
-      session.user.formationName = token.formationName
-      session.user.rank = token.rank
+      // A logged-in formation always has a real email/name (that's what it
+      // logged in with) — the base JWT type just declares them nullable
+      // for providers that don't guarantee it.
+      session.user.id = token.formationId
+      session.user.email = token.email!
+      session.user.name = token.name!
+      session.user.privileges = token.privileges
       return session
     },
     authorized({ auth, request }) {
@@ -44,17 +46,7 @@ export const authConfig = {
         return true
       }
 
-      if (!isLoggedIn) return false // Auth.js redirects to pages.signIn with callbackUrl
-
-      if (pathname.startsWith("/admin") && !ADMIN_ROLES.includes(auth.user.role)) {
-        return Response.redirect(new URL("/portal", request.nextUrl))
-      }
-
-      if (pathname.startsWith("/portal") && ADMIN_ROLES.includes(auth.user.role)) {
-        return Response.redirect(new URL("/admin", request.nextUrl))
-      }
-
-      return true
+      return isLoggedIn // Auth.js redirects to pages.signIn with callbackUrl otherwise
     },
   },
 } satisfies NextAuthConfig

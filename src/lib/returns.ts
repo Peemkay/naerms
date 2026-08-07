@@ -3,52 +3,65 @@ import { getVisibleFormationIds } from "@/lib/scope"
 import { toIsoDate } from "@/lib/format"
 import type { ReturnRow } from "@/components/returns-table"
 
-export function getReturnsForFormations(formationIds: string[]) {
-  return prisma.equipmentReturn.findMany({
-    where: { formationId: { in: formationIds } },
+/** Every return ITEM (equipment line) submitted by any of the given formations. */
+export function getReturnItemsForFormations(formationIds: string[]) {
+  return prisma.returnItem.findMany({
+    where: { return: { formationId: { in: formationIds } } },
     include: {
-      formation: { select: { id: true, name: true, type: true } },
-      submittedBy: { select: { id: true, fullName: true, rank: true } },
+      return: {
+        include: { formation: { select: { id: true, name: true, type: true } } },
+      },
     },
     orderBy: { createdAt: "desc" },
   })
 }
 
 /** Everything visible to `rootFormationId`: itself plus every descendant. */
-export async function getVisibleReturns(rootFormationId: string) {
+export async function getVisibleReturnItems(rootFormationId: string) {
   const ids = await getVisibleFormationIds(rootFormationId)
-  return getReturnsForFormations(ids)
+  return getReturnItemsForFormations(ids)
 }
 
-type ReturnWithRelations = Awaited<ReturnType<typeof getReturnsForFormations>>[number]
+type ReturnItemWithRelations = Awaited<ReturnType<typeof getReturnItemsForFormations>>[number]
 
-export function toReturnRow(r: ReturnWithRelations): ReturnRow {
+export function toReturnRow(item: ReturnItemWithRelations): ReturnRow {
   return {
-    id: r.id,
-    serialNo: r.serialNo,
-    requestRef: r.requestRef,
-    formationName: r.formation.name,
-    equipmentName: r.equipmentName,
-    equipmentModel: r.equipmentModel,
-    equipmentSerial: r.equipmentSerial,
-    band: r.band,
-    status: r.status,
-    condition: r.condition,
-    dateIssued: toIsoDate(r.dateIssued),
-    submittedByName: r.submittedBy.fullName,
+    id: item.id,
+    returnId: item.returnId,
+    lineNo: item.lineNo,
+    requestRef: item.return.requestRef,
+    formationName: item.return.formation.name,
+    equipmentName: item.equipmentName,
+    equipmentModel: item.equipmentModel,
+    equipmentSerial: item.equipmentSerial,
+    band: item.band,
+    status: item.status,
+    condition: item.condition,
+    dateIssued: toIsoDate(item.return.dateIssued),
   }
 }
 
-export function getReturnWithHistory(returnId: string) {
-  return prisma.equipmentReturn.findUnique({
+export function getReturnWithItems(returnId: string) {
+  return prisma.return.findUnique({
     where: { id: returnId },
     include: {
       formation: true,
-      submittedBy: { select: { id: true, fullName: true, rank: true, serviceId: true } },
-      statusHistory: {
-        orderBy: { changedAt: "asc" },
-        include: { changedBy: { select: { fullName: true, rank: true, role: true } } },
+      items: {
+        orderBy: { lineNo: "asc" },
+        include: {
+          statusHistory: {
+            orderBy: { changedAt: "asc" },
+            include: { changedBy: { select: { name: true } } },
+          },
+        },
       },
     },
+  })
+}
+
+export function getReturnItemWithReturn(returnItemId: string) {
+  return prisma.returnItem.findUnique({
+    where: { id: returnItemId },
+    include: { return: true },
   })
 }

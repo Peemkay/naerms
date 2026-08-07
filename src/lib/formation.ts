@@ -68,7 +68,7 @@ export async function getFormationPickerOptions(): Promise<FormationPickerOption
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 
-/** Same picker options, restricted to one admin's visible scope (for user creation). */
+/** Same picker options, restricted to one formation's visible scope. */
 export async function getFormationOptionsInScope(rootFormationId: string): Promise<FormationPickerOption[]> {
   const [all, visibleIds] = await Promise.all([
     getFormationPickerOptions(),

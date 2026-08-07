@@ -8,7 +8,7 @@ import { loginSchema } from "@/lib/validation/auth"
 export async function authenticate(values: unknown) {
   const parsed = loginSchema.safeParse(values)
   if (!parsed.success) {
-    return { error: "Enter a service ID and password." }
+    return { error: "Enter a NAWANI email and password." }
   }
 
   try {
@@ -17,7 +17,7 @@ export async function authenticate(values: unknown) {
     // signIn() redirects on success by throwing a special NEXT_REDIRECT
     // error internally — only AuthError instances are real auth failures.
     if (err instanceof AuthError) {
-      return { error: "Invalid service ID or password." }
+      return { error: "Invalid email or password." }
     }
     throw err
   }

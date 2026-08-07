@@ -10,37 +10,37 @@ neonConfig.webSocketConstructor = ws
 const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 
-// Generates a fresh, unique, memorable-ish password per seeded account —
-// run this whenever the shared `naerms123` seed default has been exposed
-// (e.g. after documenting it in a README) and you want the live database's
-// actual credentials to no longer match the public documentation.
+// Generates a fresh, unique password for every formation that has a login
+// (email set) — run this whenever a shared/default password has been
+// exposed and you want the live database's actual credentials to change.
 function generatePassword(): string {
   return crypto.randomBytes(9).toString("base64url") // 12 chars, url-safe
 }
 
 async function main() {
-  const users = await prisma.user.findMany({
-    select: { id: true, serviceId: true, fullName: true, role: true },
-    orderBy: { serviceId: "asc" },
+  const formations = await prisma.formation.findMany({
+    where: { email: { not: null } },
+    select: { id: true, name: true, email: true },
+    orderBy: { email: "asc" },
   })
 
-  if (users.length === 0) {
-    console.log("No users found — nothing to rotate.")
+  if (formations.length === 0) {
+    console.log("No formations with an account found — nothing to rotate.")
     return
   }
 
-  const rows: { serviceId: string; role: string; password: string }[] = []
+  const rows: { name: string; email: string | null; password: string }[] = []
 
-  for (const user of users) {
+  for (const formation of formations) {
     const password = generatePassword()
     const passwordHash = await bcrypt.hash(password, 10)
-    await prisma.user.update({
-      where: { id: user.id },
+    await prisma.formation.update({
+      where: { id: formation.id },
       // Also clear any lockout state so a rotated password isn't
       // immediately blocked by a stale lock from before the rotation.
       data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null },
     })
-    rows.push({ serviceId: user.serviceId, role: user.role, password })
+    rows.push({ name: formation.name, email: formation.email, password })
   }
 
   console.log(`Rotated passwords for ${rows.length} account(s). Store these somewhere safe:\n`)
