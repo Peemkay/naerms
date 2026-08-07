@@ -1,0 +1,169 @@
+// NAERMS — Nigerian Army Signals Equipment Returns Management System
+// Prisma schema: formation tree, role-based users, equipment returns
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------
+// FORMATION TREE
+// Self-referencing model represents NAS -> NACWC -> Schools/Brigades ->
+// Regiments -> Units. Any level can have children of the level below it.
+// ---------------------------------------------------------------------
+
+enum FormationType {
+  ROOT              // NAS (Nigerian Army Signals) — top of the tree
+  COMMAND           // e.g. NACWC
+  SCHOOL
+  SIGNAL_BRIGADE    // e.g. 52 Signals Brigade
+  SIGNAL_REGIMENT   // SR — sits directly under a Signal Brigade (e.g. 520 SR, 525 SR)
+  BRIGADE_SIGNALS   // BS — administratively under NAS, but supports another corps' brigade (e.g. 521 BS)
+  UNIT              // lowest level — where returns are actually submitted
+}
+
+enum FormationRole {
+  OPERATIONAL   // e.g. 520 SR — field comms
+  SUPPORT       // e.g. 525 SR — maintenance, workshops, supply
+  ATTACHED      // e.g. 521 BS — detached to support another corps brigade
+}
+
+model Formation {
+  id            String        @id @default(cuid())
+  name          String                          // e.g. "521 Brigade Signals"
+  type          FormationType
+  role          FormationRole?                   // relevant for SR / BS, optional elsewhere
+
+  // NAS chain of command — every formation's real reporting line stays pure NAS
+  parentId      String?
+  parent        Formation?    @relation("FormationTree", fields: [parentId], references: [id])
+  children      Formation[]   @relation("FormationTree")
+
+  // For BS units only: the external corps brigade they support operationally.
+  // Kept separate from parentId — attachment is NOT a chain-of-command change.
+  attachedTo    String?                          // e.g. "4 Mechanised Infantry Brigade"
+
+  users         User[]
+  returns       EquipmentReturn[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([parentId])
+}
+
+// ---------------------------------------------------------------------
+// USERS & ROLES
+// Role scope is resolved relative to the user's own formationId by
+// walking the tree — no hardcoded formation lists.
+// ---------------------------------------------------------------------
+
+enum Role {
+  UNIT_CLERK          // submit/edit own unit's returns
+  REGIMENT_OFFICER    // view/verify own regiment + subordinate units
+  BRIGADE_ADMIN       // view/verify own brigade + everything below it
+  COMMAND_ADMIN       // e.g. NACWC-level oversight
+  NAS_ADMIN           // full system access, top of tree
+}
+
+model User {
+  id            String     @id @default(cuid())
+  serviceId     String     @unique          // NA service number, used as login
+  fullName      String
+  rank          String?
+  role          Role
+  formationId   String
+  formation     Formation  @relation(fields: [formationId], references: [id])
+
+  passwordHash  String
+  isActive      Boolean    @default(true)
+
+  // Brute-force lockout: incremented on each failed login, reset on success.
+  // Once it crosses the threshold (see src/lib/auth.ts), lockedUntil is set
+  // and further attempts are rejected until it passes, win or lose.
+  failedLoginAttempts Int      @default(0)
+  lockedUntil         DateTime?
+
+  submittedReturns EquipmentReturn[] @relation("SubmittedBy")
+  statusChanges    StatusHistory[]
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([formationId])
+}
+
+// ---------------------------------------------------------------------
+// EQUIPMENT RETURNS — matches the Sigs returns register columns
+// ---------------------------------------------------------------------
+
+// Workflow status — where the return is in the review/approval chain
+enum ReturnStatus {
+  PENDING       // submitted, awaiting verification
+  VERIFIED      // confirmed accurate by next level up
+  DISCREPANCY   // flagged — mismatch or missing info
+  RETURNED      // equipment physically returned
+  CLOSED        // fully reconciled
+}
+
+// Equipment condition — independent of workflow status. A radio can be
+// UNSERVICEABLE and still PENDING verification at the same time.
+enum EquipmentCondition {
+  SERVICEABLE
+  UNSERVICEABLE
+  UNDER_REPAIR
+  AWAITING_EVACUATION
+}
+
+model EquipmentReturn {
+  id               String        @id @default(cuid())
+  serialNo         Int                              // row "Serial" in the register
+  requestRef       String                           // Request Ref
+  auth             String?                          // Auth
+  dateIssued       DateTime?
+  formationId      String                           // Fmn/Unit submitting
+  formation        Formation     @relation(fields: [formationId], references: [id])
+  howDeployed      String?                          // How Depl
+  purposeOfIssue   String?
+
+  equipmentName    String
+  equipmentModel   String?
+  band             String?
+  equipmentType    String?
+  equipmentSerial  String                           // physical serial number
+  origin           String?
+
+  status           ReturnStatus         @default(PENDING)      // workflow state
+  condition        EquipmentCondition?                          // physical/serviceability state
+  remarks          String?
+
+  submittedById    String
+  submittedBy      User          @relation("SubmittedBy", fields: [submittedById], references: [id])
+
+  statusHistory    StatusHistory[]
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([formationId])
+  @@index([status])
+  @@index([equipmentSerial])
+}
+
+// Full audit trail — required for command-level accountability
+model StatusHistory {
+  id           String           @id @default(cuid())
+  returnId     String
+  return       EquipmentReturn  @relation(fields: [returnId], references: [id])
+  changedById  String
+  changedBy    User             @relation(fields: [changedById], references: [id])
+  fromStatus   ReturnStatus?
+  toStatus     ReturnStatus
+  note         String?
+  changedAt    DateTime         @default(now())
+
+  @@index([returnId])
+}
