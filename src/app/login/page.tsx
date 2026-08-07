@@ -23,7 +23,7 @@ export default function LoginPage() {
           <CardHeader className="pb-0">
             <p className="text-sm font-medium text-foreground">Sign in</p>
             <p className="text-sm text-muted-foreground">
-              Sign in with your formation&apos;s NAWANI email to access its returns.
+              Sign in with your formation&apos;s email to access its returns.
             </p>
           </CardHeader>
           <CardContent className="pt-4">

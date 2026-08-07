@@ -8,7 +8,7 @@ import { loginSchema } from "@/lib/validation/auth"
 export async function authenticate(values: unknown) {
   const parsed = loginSchema.safeParse(values)
   if (!parsed.success) {
-    return { error: "Enter a NAWANI email and password." }
+    return { error: "Enter an email and password." }
   }
 
   try {

@@ -9,7 +9,7 @@ assignable privileges rather than a fixed role hierarchy.
 
 - **Next.js 16** (App Router, TypeScript, React 19)
 - **PostgreSQL + Prisma 7** (driver-adapter architecture, `@prisma/adapter-neon`)
-- **Auth.js (NextAuth) v5** — credentials login keyed on a formation's NAWANI email, JWT sessions
+- **Auth.js (NextAuth) v5** — credentials login keyed on a formation's email, JWT sessions
 - **Tailwind CSS v4 + shadcn/ui** (`base-nova` style, built on Base UI primitives)
 - **TanStack Table v9** for the sortable/filterable returns registry
 - **Zod v4** for form and server-action validation
@@ -94,9 +94,9 @@ Visit `http://localhost:3000` — you'll be redirected to `/login`, then to
 ## Access model
 
 **Formations are the accounts.** There's no separate User table — a
-Formation gets a NAWANI `email` + password once someone with the right
-privilege sets that up for it, and can exist as a pure org-chart node with
-no login at all until then.
+Formation gets an `email` + password once someone with the right privilege
+sets that up for it, and can exist as a pure org-chart node with no login
+at all until then.
 
 **Visibility is scope-based, not hardcoded:** a formation sees its own
 returns plus everything submitted by its descendants, resolved by walking
@@ -131,6 +131,12 @@ covers on the "New Return" form. Workflow status (`PENDING` →
 `VERIFIED`/`DISCREPANCY` → `RETURNED` → `CLOSED`) and physical condition are
 tracked per item, not per request, since a single submission can easily mix
 a serviceable radio with an unserviceable one.
+
+Every return has a **Preview & Print** view (`/returns/[id]/print`) — a
+clean, always-light printable register entry with all equipment lines and a
+signature block (Name/Signature, then Rank/Date) for physical sign-off after
+printing. It sits outside the dashboard shell entirely, so nothing but the
+document itself is on the page or in the printed output.
 
 ## Notifications
 

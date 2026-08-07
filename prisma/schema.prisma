@@ -12,9 +12,9 @@ datasource db {
 
 // ---------------------------------------------------------------------
 // FORMATION TREE — also the account model. There is no separate User:
-// a formation logs in directly (NAWANI email + password) once someone
-// with MANAGE_ACCOUNTS privilege sets that up for it. A formation can
-// exist as a pure org-chart node with no login at all.
+// a formation logs in directly (email + password) once someone with
+// MANAGE_ACCOUNTS privilege sets that up for it. A formation can exist
+// as a pure org-chart node with no login at all.
 // ---------------------------------------------------------------------
 
 enum FormationType {
@@ -60,7 +60,7 @@ model Formation {
   attachedTo    String?                          // e.g. "4 Mechanised Infantry Brigade"
 
   // --- Account (nullable — a formation may have no login yet) ----------
-  email               String?     @unique         // NAWANI address, e.g. "521.bs@army.mil.ng"
+  email               String?     @unique         // login address, e.g. "521.bs@army.mil.ng"
   passwordHash        String?
   isActive            Boolean     @default(true)
   privileges          Privilege[]

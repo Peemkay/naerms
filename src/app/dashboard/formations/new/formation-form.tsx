@@ -150,8 +150,8 @@ export function FormationForm({
 
       <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
         <Field name="email">
-          <FieldLabel>NAWANI Email (optional)</FieldLabel>
-          <Input name="email" type="email" placeholder="e.g. 522.sr@army.mil.ng" />
+          <FieldLabel>Email (optional)</FieldLabel>
+          <Input name="email" type="email" placeholder="email" />
           <FieldError />
         </Field>
         <Field name="password">

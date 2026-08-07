@@ -43,8 +43,8 @@ export function AccountForm({ formationId, currentEmail }: { formationId: string
       className="grid gap-4"
     >
       <Field name="email">
-        <FieldLabel>NAWANI Email</FieldLabel>
-        <Input name="email" type="email" defaultValue={currentEmail ?? ""} placeholder="e.g. 522.sr@army.mil.ng" />
+        <FieldLabel>Email</FieldLabel>
+        <Input name="email" type="email" defaultValue={currentEmail ?? ""} placeholder="email" />
         <FieldError />
       </Field>
       <Field name="password">

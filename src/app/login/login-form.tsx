@@ -33,11 +33,11 @@ export function LoginForm() {
       }}
     >
       <Field name="email">
-        <FieldLabel>NAWANI Email</FieldLabel>
+        <FieldLabel>Email</FieldLabel>
         <Input
           name="email"
           type="email"
-          placeholder="521.bs@army.mil.ng"
+          placeholder="email"
           autoComplete="username"
           autoFocus
         />

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Pencil } from "lucide-react"
+import { Pencil, Printer } from "lucide-react"
 
 import { requireSession } from "@/lib/session"
 import { getReturnWithItems } from "@/lib/returns"
@@ -52,18 +52,30 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
             {ret.items.length === 1 ? "" : "s"}
           </p>
         </div>
-        {canEdit && (
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             render={
-              <Link href={`/dashboard/returns/${ret.id}/edit`}>
-                <Pencil className="size-3.5" />
-                Edit
+              <Link href={`/returns/${ret.id}/print`} target="_blank">
+                <Printer className="size-3.5" />
+                Preview &amp; Print
               </Link>
             }
           />
-        )}
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link href={`/dashboard/returns/${ret.id}/edit`}>
+                  <Pencil className="size-3.5" />
+                  Edit
+                </Link>
+              }
+            />
+          )}
+        </div>
       </div>
 
       <Card className="mb-6">

@@ -1,0 +1,120 @@
+import { notFound } from "next/navigation"
+
+import { requireSession } from "@/lib/session"
+import { getReturnWithItems } from "@/lib/returns"
+import { getVisibleFormationIds } from "@/lib/scope"
+import { prisma } from "@/lib/prisma"
+import { CONDITION_LABEL, RETURN_STATUS_LABEL } from "@/lib/status"
+import { PrintButton } from "@/components/print-button"
+
+function SignatureLine({ label }: { label: string }) {
+  return (
+    <div className="flex items-end gap-2">
+      <span className="text-sm whitespace-nowrap text-neutral-600">{label}</span>
+      <span className="flex-1 border-b border-neutral-900" />
+    </div>
+  )
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[11px] tracking-wide text-neutral-500 uppercase">{label}</p>
+      <p className="text-sm text-neutral-900">{value ?? "—"}</p>
+    </div>
+  )
+}
+
+// Deliberately outside the /dashboard layout — no sidebar, no nav, no app
+// chrome, and always rendered light (a printed record isn't themed).
+export default async function PrintReturnPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await requireSession()
+  const ret = await getReturnWithItems(id)
+  if (!ret) notFound()
+
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  const wasNotified = await prisma.notification.findFirst({
+    where: { formationId: session.user.id, returnId: ret.id },
+  })
+  if (!visibleIds.includes(ret.formationId) && !wasNotified) notFound()
+
+  return (
+    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900 print:p-0">
+      <div className="mx-auto flex max-w-3xl justify-end pb-4 print:hidden">
+        <PrintButton />
+      </div>
+
+      <div className="mx-auto max-w-3xl border border-neutral-300 p-8 print:border-0">
+        <div className="mb-6 flex items-center justify-between border-b border-neutral-900 pb-4">
+          <div>
+            <p className="text-xs tracking-widest text-neutral-500 uppercase">
+              Nigerian Army Signals
+            </p>
+            <h1 className="text-lg font-semibold">Equipment Return Register Entry</h1>
+          </div>
+          <p className="text-sm text-neutral-500">
+            Printed{" "}
+            {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+          </p>
+        </div>
+
+        <div className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+          <Field label="Request Ref" value={ret.requestRef} />
+          <Field label="Fmn/Unit" value={ret.formation.name} />
+          <Field label="Auth" value={ret.auth} />
+          <Field
+            label="Date Issued"
+            value={ret.dateIssued?.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          />
+          <Field label="How Deployed" value={ret.howDeployed} />
+          <Field label="Purpose of Issue" value={ret.purposeOfIssue} />
+        </div>
+
+        <table className="mb-8 w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-y border-neutral-900 text-left text-[11px] tracking-wide text-neutral-500 uppercase">
+              <th className="py-1.5 pr-2">Serial</th>
+              <th className="py-1.5 pr-2">Equipment</th>
+              <th className="py-1.5 pr-2">Model</th>
+              <th className="py-1.5 pr-2">Band</th>
+              <th className="py-1.5 pr-2">Type</th>
+              <th className="py-1.5 pr-2">Equipment Serial</th>
+              <th className="py-1.5 pr-2">Origin</th>
+              <th className="py-1.5 pr-2">Condition</th>
+              <th className="py-1.5 pr-2">Status</th>
+              <th className="py-1.5">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ret.items.map((item) => (
+              <tr key={item.id} className="border-b border-neutral-200 align-top">
+                <td className="py-1.5 pr-2">{item.lineNo}</td>
+                <td className="py-1.5 pr-2">{item.equipmentName}</td>
+                <td className="py-1.5 pr-2">{item.equipmentModel ?? "—"}</td>
+                <td className="py-1.5 pr-2">{item.band ?? "—"}</td>
+                <td className="py-1.5 pr-2">{item.equipmentType ?? "—"}</td>
+                <td className="py-1.5 pr-2">{item.equipmentSerial}</td>
+                <td className="py-1.5 pr-2">{item.origin ?? "—"}</td>
+                <td className="py-1.5 pr-2">{item.condition ? CONDITION_LABEL[item.condition] : "—"}</td>
+                <td className="py-1.5 pr-2">{RETURN_STATUS_LABEL[item.status]}</td>
+                <td className="py-1.5">{item.remarks ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="grid gap-6 border-t border-neutral-900 pt-6 sm:grid-cols-2">
+          <SignatureLine label="Name" />
+          <SignatureLine label="Signature" />
+          <SignatureLine label="Rank" />
+          <SignatureLine label="Date" />
+        </div>
+      </div>
+    </main>
+  )
+}
