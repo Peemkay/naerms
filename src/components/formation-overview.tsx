@@ -27,6 +27,19 @@ const CONDITION_QTY_KEY = {
   AWAITING_EVACUATION: "awaitingEvacuationQty",
 } as const
 
+// Status and condition filter independently but combine (AND) when both are
+// set, so clicking one card never silently drops the other's selection.
+function buildFilterHref(
+  basePath: string,
+  filters: { status?: ReturnStatus; condition?: EquipmentCondition }
+) {
+  const params = new URLSearchParams()
+  if (filters.status) params.set("status", filters.status)
+  if (filters.condition) params.set("condition", filters.condition)
+  const query = params.toString()
+  return query ? `${basePath}?${query}` : basePath
+}
+
 export function FormationOverview({
   formation,
   returnItems,
@@ -45,11 +58,15 @@ export function FormationOverview({
 
   // Condition is a per-item quantity breakdown, not a single value, so
   // "filter by condition" means "items with at least one unit in that
-  // bucket" — applied here at the data level rather than as a table
-  // column filter.
-  const visibleItems = filterCondition
-    ? returnItems.filter((item) => item[CONDITION_QTY_KEY[filterCondition]] > 0)
-    : returnItems
+  // bucket" — applied here at the data level (and combined with status, so
+  // the registry count reflects both filters together) rather than as a
+  // table column filter. Status is additionally applied as a live column
+  // filter inside ReturnsTable so the search/sort controls stay in sync.
+  const visibleItems = returnItems.filter((item) => {
+    if (filterCondition && item[CONDITION_QTY_KEY[filterCondition]] <= 0) return false
+    if (filterStatus && item.status !== filterStatus) return false
+    return true
+  })
 
   const organicRegiments = formation.children.filter((c) => c.type === "SIGNAL_REGIMENT")
   const attachedSignals = formation.children.filter((c) => c.type === "BRIGADE_SIGNALS")
@@ -115,7 +132,7 @@ export function FormationOverview({
               label={RETURN_STATUS_LABEL[status]}
               value={statusCounts[status]}
               tone={RETURN_STATUS_TONE[status]}
-              href={`${basePath}?status=${status}`}
+              href={buildFilterHref(basePath, { status, condition: filterCondition })}
               active={filterStatus === status}
             />
           ))}
@@ -133,7 +150,7 @@ export function FormationOverview({
               label={CONDITION_LABEL[condition]}
               value={conditionSums[condition]}
               tone={CONDITION_TONE[condition]}
-              href={`${basePath}?condition=${condition}`}
+              href={buildFilterHref(basePath, { status: filterStatus, condition })}
               active={filterCondition === condition}
             />
           ))}

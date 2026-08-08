@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   columnFilteringFeature,
@@ -14,6 +14,7 @@ import {
   sortFn_alphanumeric,
   tableFeatures,
   useTable,
+  type ColumnFiltersState,
 } from "@tanstack/react-table"
 import { ArrowUpDown, Search } from "lucide-react"
 import type { ReturnStatus, EquipmentCondition } from "@prisma/client"
@@ -135,19 +136,27 @@ export function ReturnsTable({
 }) {
   const [globalFilter, setGlobalFilter] = useState("")
   const stableData = useMemo(() => data, [data])
-  const initialColumnFilters = useMemo(
+  const initialColumnFilters = useMemo<ColumnFiltersState>(
     () => (initialStatus ? [{ id: "status", value: initialStatus }] : []),
     [initialStatus]
   )
+  // Controlled (not just `initialState`) so that clicking a different status
+  // card while this table is already mounted actually re-filters it —
+  // `initialState` in TanStack Table only seeds state on first mount, so a
+  // client-side nav to a new `?status=` value was previously a no-op here.
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialColumnFilters)
+  useEffect(() => {
+    setColumnFilters(initialColumnFilters)
+  }, [initialColumnFilters])
 
   const table = useTable(
     {
       features,
       columns,
       data: stableData,
-      initialState: { columnFilters: initialColumnFilters },
-      state: { globalFilter },
+      state: { globalFilter, columnFilters },
       onGlobalFilterChange: setGlobalFilter,
+      onColumnFiltersChange: setColumnFilters,
       globalFilterFn: "includesString",
       getColumnCanGlobalFilter: (column) =>
         ["requestRef", "formationName", "equipmentName"].includes(column.id),
