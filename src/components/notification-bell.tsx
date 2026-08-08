@@ -10,7 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -76,7 +75,10 @@ export function NotificationBell({
         }
       />
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        {/* A plain element, not DropdownMenuLabel — that one requires a
+            <Menu.Group> ancestor for its context and throws without one,
+            which is exactly what broke this dropdown before. */}
+        <p className="px-1.5 py-1 text-xs font-medium text-muted-foreground">Notifications</p>
         <DropdownMenuSeparator />
         {notifications.length === 0 ? (
           <p className="px-2 py-4 text-center text-sm text-muted-foreground">

@@ -291,11 +291,6 @@ export function ReturnForm(props: Props) {
                       value={item.origin}
                       onChange={(e) => updateItem(index, { origin: e.target.value })}
                     />
-                    {props.mode === "create" && props.defaultOrigin && index === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Pre-filled from your formation&apos;s attachment ({props.defaultOrigin}).
-                      </p>
-                    )}
                   </div>
 
                   <div className="grid gap-1.5">

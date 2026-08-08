@@ -30,11 +30,11 @@ export async function AppShell({
           a themed surface. Only the content area below adapts to light/dark. */}
       <header className="sticky top-0 z-40 border-b-2 border-brand-gold bg-brand-navy text-white shadow-sm">
         <div className="flex h-14 items-center gap-6 px-4">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5 font-semibold tracking-wide">
-            <Image src="/logo.png" alt="NAERMS" width={30} height={34} className="h-8 w-auto" priority />
-            <span className="hidden sm:inline">
-              NAE<span className="text-brand-gold">RMS</span>
+          <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-wide">
+            <span className="flex size-8 items-center justify-center rounded-md bg-white p-1">
+              <Image src="/logo.png" alt="NAERMS" width={26} height={30} className="h-full w-auto" priority />
             </span>
+            <span className="hidden sm:inline">NAERMS</span>
           </Link>
 
           {nav}

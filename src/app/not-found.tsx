@@ -6,13 +6,9 @@ import { Button } from "@/components/ui/button"
 export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-1 flex-col items-center justify-center gap-4 bg-brand-navy px-4 text-center">
-      <Image
-        src="/logo.png"
-        alt="NAERMS"
-        width={64}
-        height={73}
-        className="h-16 w-auto opacity-40 grayscale"
-      />
+      <span className="flex size-16 items-center justify-center rounded-2xl bg-white/90 p-2.5">
+        <Image src="/logo.png" alt="NAERMS" width={64} height={73} className="h-full w-auto opacity-60" />
+      </span>
       <div>
         <h1 className="text-lg font-semibold text-white">Not found</h1>
         <p className="text-sm text-white/60">

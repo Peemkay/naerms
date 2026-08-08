@@ -13,11 +13,11 @@ export default function LoginPage() {
     >
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <Image src="/logo.png" alt="NAERMS" width={70} height={80} className="h-20 w-auto drop-shadow-lg" priority />
+          <span className="flex size-20 items-center justify-center rounded-2xl bg-white p-3 shadow-lg">
+            <Image src="/logo.png" alt="NAERMS" width={70} height={80} className="h-full w-auto" priority />
+          </span>
           <div>
-            <h1 className="text-xl font-semibold tracking-wide text-white">
-              NAE<span className="text-brand-gold">RMS</span>
-            </h1>
+            <h1 className="text-xl font-semibold tracking-wide text-white">NAERMS</h1>
             <p className="text-sm text-white/60">
               Nigerian Army Equipment Returns Management System
             </p>

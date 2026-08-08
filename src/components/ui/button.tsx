@@ -44,11 +44,18 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      render={render}
+      // Every `render` value in this app is a Link/anchor, never another
+      // button — default nativeButton off whenever render is given so Base
+      // UI doesn't warn about a mismatch, but let an explicit prop win.
+      nativeButton={nativeButton ?? !render}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

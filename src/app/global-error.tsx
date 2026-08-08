@@ -25,15 +25,22 @@ export default function GlobalError({
             fontFamily: "system-ui, sans-serif",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="NAERMS"
-            style={{ height: "64px", width: "auto", opacity: 0.4, filter: "grayscale(1)" }}
-          />
-          <h1 style={{ fontSize: "1.125rem", fontWeight: 600 }}>
-            NAE<span style={{ color: "#f4bd0b" }}>RMS</span> failed to load
-          </h1>
+          <span
+            style={{
+              display: "flex",
+              width: "64px",
+              height: "64px",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "1rem",
+              background: "rgba(255,255,255,0.9)",
+              padding: "10px",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="NAERMS" style={{ height: "100%", width: "auto", opacity: 0.7 }} />
+          </span>
+          <h1 style={{ fontSize: "1.125rem", fontWeight: 600 }}>NAERMS failed to load</h1>
           <p style={{ fontSize: "0.875rem", color: "#c2bfe0", maxWidth: 360 }}>
             A critical error occurred. Try reloading — if it persists, contact your system
             administrator.
