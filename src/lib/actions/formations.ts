@@ -164,3 +164,72 @@ export async function setPrivilegesAction(formationId: string, values: unknown):
   revalidatePath("/dashboard/accounts")
   return { success: true, id: formationId }
 }
+
+/**
+ * Permanently removes a formation — only ever a genuinely unused node
+ * (no subordinates, no returns on file, no status-change history, no
+ * return requests sent or received). Blocked rather than cascaded in every
+ * other case: a subtree getting silently orphaned (the DB's ON DELETE
+ * SET NULL for parentId) or a return disappearing as a side effect of
+ * deleting the formation that filed it would both undermine guarantees
+ * this system otherwise makes on purpose (returns are a permanent record
+ * until explicitly deleted one at a time; audit trails don't lose the
+ * identity of who made a change). Its own notifications (its inbox, not
+ * anyone else's record) are cleaned up as part of the same delete.
+ */
+export async function deleteFormationAction(formationId: string): Promise<ActionResult> {
+  const session = await requirePrivilege("MANAGE_FORMATIONS")
+
+  if (formationId === session.user.id) {
+    return { error: "You cannot delete your own formation." }
+  }
+
+  const target = await prisma.formation.findUnique({ where: { id: formationId } })
+  if (!target) return { error: "Formation not found." }
+  if (target.type === "ROOT") {
+    return { error: "The root formation cannot be deleted." }
+  }
+
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  if (!visibleIds.includes(formationId)) {
+    return { error: "That formation is outside your scope." }
+  }
+
+  const [childCount, returnCount, statusChangeCount, requestCount] = await Promise.all([
+    prisma.formation.count({ where: { parentId: formationId } }),
+    prisma.return.count({ where: { formationId } }),
+    prisma.statusHistory.count({ where: { changedById: formationId } }),
+    prisma.returnRequest.count({
+      where: { OR: [{ fromFormationId: formationId }, { toFormationId: formationId }] },
+    }),
+  ])
+
+  if (childCount > 0) {
+    return {
+      error: `This formation has ${childCount} subordinate formation${childCount === 1 ? "" : "s"}. Delete or reassign them first.`,
+    }
+  }
+  if (returnCount > 0) {
+    return {
+      error: `This formation has ${returnCount} return${returnCount === 1 ? "" : "s"} on file. Delete those individually first if you want to remove this formation.`,
+    }
+  }
+  if (statusChangeCount > 0) {
+    return {
+      error: `This formation has made ${statusChangeCount} status change${statusChangeCount === 1 ? "" : "s"} on record elsewhere in the system and cannot be removed without breaking that audit trail.`,
+    }
+  }
+  if (requestCount > 0) {
+    return {
+      error: `This formation has ${requestCount} return request${requestCount === 1 ? "" : "s"} on file (sent or received). Those need to be resolved first.`,
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.notification.deleteMany({ where: { formationId } }),
+    prisma.formation.delete({ where: { id: formationId } }),
+  ])
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true, id: formationId }
+}
