@@ -35,12 +35,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
         />
       }
     >
-      <div className="flex flex-1">
+      {/* Column below lg (drawer toggle bar, then content full-width) — a
+          permanent side-by-side row left almost no room for content on a
+          phone-width screen. */}
+      <div className="flex flex-1 flex-col lg:flex-row">
         <FormationTreeSidebar
           tree={tree}
           canAddFormation={session.user.privileges.includes("MANAGE_FORMATIONS")}
         />
-        <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-4 sm:px-6 sm:py-6">{children}</main>
       </div>
     </AppShell>
   )
