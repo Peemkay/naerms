@@ -45,19 +45,19 @@ export default async function AccountsPage() {
             <tbody className="divide-y divide-border">
               {formations.map((f) => (
                 <tr key={f.id} className={f.isActive ? "" : "opacity-50"}>
-                  <td className="px-4 py-2.5 font-medium">{f.name}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
+                  <td className="px-4 py-2.5 font-medium whitespace-nowrap">{f.name}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">
                     {f.email ?? <span className="italic">No account</span>}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     {!f.email ? "—" : f.isActive ? "Active" : "Inactive"}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-xs whitespace-nowrap text-muted-foreground">
                     {f.privileges.length > 0
                       ? f.privileges.map((p) => PRIVILEGE_LABELS[p]).join(", ")
                       : "None"}
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <Link href={`/dashboard/accounts/${f.id}`} className="text-sm font-medium text-primary hover:underline">
                       Manage
                     </Link>

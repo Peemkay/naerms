@@ -29,7 +29,7 @@ export async function AppShell({
       {/* The masthead is fixed brand navy in both themes — a letterhead, not
           a themed surface. Only the content area below adapts to light/dark. */}
       <header className="sticky top-0 z-40 border-b-2 border-brand-gold bg-brand-navy text-white shadow-sm">
-        <div className="flex h-14 items-center gap-6 px-4">
+        <div className="flex h-14 items-center gap-2 px-3 sm:gap-4 sm:px-4">
           <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-wide">
             <span className="flex size-8 items-center justify-center rounded-md bg-white p-1">
               <Image src="/logo.png" alt="NAERMS" width={26} height={30} className="h-full w-auto" priority />
@@ -37,13 +37,16 @@ export async function AppShell({
             <span className="hidden sm:inline">NAERMS</span>
           </Link>
 
-          {nav}
+          {/* The scrollable, shrinkable middle — everything else here is
+              shrink-0, so a narrow viewport squeezes/scrolls the tabs
+              instead of forcing the whole header wider than the screen. */}
+          <div className="min-w-0 flex-1 overflow-x-auto">{nav}</div>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {user && (
-              <div className="hidden text-right leading-tight sm:block">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-white/60">
+              <div className="hidden max-w-40 text-right leading-tight xl:block">
+                <p className="truncate text-sm font-medium">{user.name}</p>
+                <p className="truncate text-xs text-white/60">
                   {user.privileges.length > 0
                     ? user.privileges.map((p) => PRIVILEGE_LABELS[p]).join(" · ")
                     : "No privileges assigned"}
