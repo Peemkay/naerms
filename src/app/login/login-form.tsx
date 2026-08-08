@@ -45,7 +45,7 @@ export function LoginForm() {
       </Field>
       <Field name="password">
         <FieldLabel>Password</FieldLabel>
-        <Input name="password" type="password" autoComplete="current-password" />
+        <Input name="password" type="password" placeholder="password" autoComplete="current-password" />
         <FieldError />
       </Field>
       {formError && (

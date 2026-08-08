@@ -49,7 +49,7 @@ export function AccountForm({ formationId, currentEmail }: { formationId: string
       </Field>
       <Field name="password">
         <FieldLabel>{currentEmail ? "New Password" : "Password"}</FieldLabel>
-        <Input name="password" type="password" />
+        <Input name="password" type="password" placeholder="password" />
         <FieldDescription>At least 8 characters. Share it with the formation directly.</FieldDescription>
         <FieldError />
       </Field>
