@@ -48,6 +48,12 @@
   --color-status-success: var(--status-success);
   --color-status-success-foreground: var(--status-success-foreground);
   --color-status-success-bg: var(--status-success-bg);
+  /* Fixed brand hues — lifted straight from the logo, constant across
+     light/dark theme (a masthead/wordmark isn't "themed", it's the brand). */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-light: var(--brand-navy-light);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-foreground: var(--brand-gold-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -58,45 +64,47 @@
 }
 
 /*
- * NAERMS palette: a restrained steel-slate neutral (hue ~250, near-zero
- * chroma) rather than shadcn's default pure gray or a generic SaaS brand
- * hue — reads as an operations tool, not a marketing dashboard. Saturated
- * color is spent only on the status-* tokens below, so it stays meaningful
- * wherever it appears (see src/lib/status.ts for the enum -> token map).
+ * NAERMS palette — lifted directly from the logo mark (sampled via
+ * ImageMagick histogram, converted to OKLCH): a deep indigo-navy
+ * (oklch(0.28 0.11 281)) and a warm gold (oklch(0.82 0.17 87)). Navy carries
+ * structure/chrome, gold is reserved for primary actions and brand accents
+ * so it stays meaningful rather than smeared across every element. The
+ * status-* tokens are a separate semantic system — never repurposed for
+ * brand, even where their hues happen to sit close to the gold.
  */
 :root {
-  --background: oklch(0.99 0.002 250);
-  --foreground: oklch(0.17 0.016 255);
-  --card: oklch(1 0.002 250);
-  --card-foreground: oklch(0.17 0.016 255);
-  --popover: oklch(1 0.002 250);
-  --popover-foreground: oklch(0.17 0.016 255);
-  --primary: oklch(0.32 0.045 255);
-  --primary-foreground: oklch(0.98 0.002 250);
-  --secondary: oklch(0.95 0.006 255);
-  --secondary-foreground: oklch(0.22 0.03 255);
-  --muted: oklch(0.955 0.005 255);
-  --muted-foreground: oklch(0.47 0.016 255);
-  --accent: oklch(0.93 0.012 255);
-  --accent-foreground: oklch(0.22 0.03 255);
+  --background: oklch(0.99 0.003 281);
+  --foreground: oklch(0.2 0.045 281);
+  --card: oklch(1 0.002 281);
+  --card-foreground: oklch(0.2 0.045 281);
+  --popover: oklch(1 0.002 281);
+  --popover-foreground: oklch(0.2 0.045 281);
+  --primary: oklch(0.79 0.16 87);
+  --primary-foreground: oklch(0.2 0.05 281);
+  --secondary: oklch(0.94 0.014 281);
+  --secondary-foreground: oklch(0.25 0.07 281);
+  --muted: oklch(0.955 0.009 281);
+  --muted-foreground: oklch(0.48 0.03 281);
+  --accent: oklch(0.92 0.02 281);
+  --accent-foreground: oklch(0.25 0.07 281);
   --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.885 0.006 255);
-  --input: oklch(0.885 0.006 255);
-  --ring: oklch(0.55 0.035 255);
-  --chart-1: oklch(0.55 0.035 255);
+  --border: oklch(0.885 0.013 281);
+  --input: oklch(0.885 0.013 281);
+  --ring: oklch(0.55 0.09 281);
+  --chart-1: oklch(0.32 0.11 281);
   --chart-2: oklch(0.6 0.14 145);
-  --chart-3: oklch(0.75 0.15 80);
+  --chart-3: oklch(0.79 0.16 87);
   --chart-4: oklch(0.55 0.22 25);
-  --chart-5: oklch(0.45 0.016 255);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.965 0.006 255);
-  --sidebar-foreground: oklch(0.17 0.016 255);
-  --sidebar-primary: oklch(0.32 0.045 255);
-  --sidebar-primary-foreground: oklch(0.98 0.002 250);
-  --sidebar-accent: oklch(0.93 0.012 255);
-  --sidebar-accent-foreground: oklch(0.22 0.03 255);
-  --sidebar-border: oklch(0.885 0.006 255);
-  --sidebar-ring: oklch(0.55 0.035 255);
+  --chart-5: oklch(0.5 0.02 281);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.965 0.011 281);
+  --sidebar-foreground: oklch(0.2 0.045 281);
+  --sidebar-primary: oklch(0.28 0.11 281);
+  --sidebar-primary-foreground: oklch(0.98 0.003 281);
+  --sidebar-accent: oklch(0.91 0.022 281);
+  --sidebar-accent-foreground: oklch(0.25 0.07 281);
+  --sidebar-border: oklch(0.885 0.013 281);
+  --sidebar-ring: oklch(0.55 0.09 281);
 
   --status-danger: oklch(0.55 0.22 25);
   --status-danger-foreground: oklch(0.985 0.005 25);
@@ -107,42 +115,47 @@
   --status-success: oklch(0.5 0.13 150);
   --status-success-foreground: oklch(0.985 0.01 150);
   --status-success-bg: oklch(0.6 0.14 145 / 14%);
+
+  --brand-navy: oklch(0.28 0.11 281);
+  --brand-navy-light: oklch(0.38 0.11 281);
+  --brand-gold: oklch(0.79 0.16 87);
+  --brand-gold-foreground: oklch(0.2 0.05 281);
 }
 
-/* Low-luminance dark theme: dark slate rather than near-black, so it's easy
-   on the eyes for long operations-room / low-light field sessions. */
+/* Low-luminance dark theme: dark navy rather than neutral slate, so the
+   brand hue carries through even in low-light / long operations-room use. */
 .dark {
-  --background: oklch(0.155 0.01 255);
-  --foreground: oklch(0.93 0.006 255);
-  --card: oklch(0.195 0.012 255);
-  --card-foreground: oklch(0.93 0.006 255);
-  --popover: oklch(0.195 0.012 255);
-  --popover-foreground: oklch(0.93 0.006 255);
-  --primary: oklch(0.78 0.05 255);
-  --primary-foreground: oklch(0.16 0.014 255);
-  --secondary: oklch(0.27 0.014 255);
-  --secondary-foreground: oklch(0.93 0.006 255);
-  --muted: oklch(0.24 0.012 255);
-  --muted-foreground: oklch(0.65 0.014 255);
-  --accent: oklch(0.29 0.016 255);
-  --accent-foreground: oklch(0.93 0.006 255);
+  --background: oklch(0.16 0.026 281);
+  --foreground: oklch(0.93 0.012 281);
+  --card: oklch(0.205 0.032 281);
+  --card-foreground: oklch(0.93 0.012 281);
+  --popover: oklch(0.205 0.032 281);
+  --popover-foreground: oklch(0.93 0.012 281);
+  --primary: oklch(0.79 0.16 87);
+  --primary-foreground: oklch(0.16 0.03 281);
+  --secondary: oklch(0.28 0.032 281);
+  --secondary-foreground: oklch(0.93 0.012 281);
+  --muted: oklch(0.245 0.028 281);
+  --muted-foreground: oklch(0.68 0.024 281);
+  --accent: oklch(0.3 0.038 281);
+  --accent-foreground: oklch(0.93 0.012 281);
   --destructive: oklch(0.7 0.19 25);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 13%);
-  --ring: oklch(0.6 0.045 255);
-  --chart-1: oklch(0.6 0.045 255);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.62 0.1 281);
+  --chart-1: oklch(0.72 0.1 281);
   --chart-2: oklch(0.65 0.15 145);
-  --chart-3: oklch(0.75 0.15 80);
+  --chart-3: oklch(0.79 0.16 87);
   --chart-4: oklch(0.7 0.19 25);
-  --chart-5: oklch(0.7 0.014 255);
-  --sidebar: oklch(0.18 0.012 255);
-  --sidebar-foreground: oklch(0.93 0.006 255);
-  --sidebar-primary: oklch(0.78 0.05 255);
-  --sidebar-primary-foreground: oklch(0.16 0.014 255);
-  --sidebar-accent: oklch(0.27 0.014 255);
-  --sidebar-accent-foreground: oklch(0.93 0.006 255);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.6 0.045 255);
+  --chart-5: oklch(0.7 0.02 281);
+  --sidebar: oklch(0.185 0.03 281);
+  --sidebar-foreground: oklch(0.93 0.012 281);
+  --sidebar-primary: oklch(0.79 0.16 87);
+  --sidebar-primary-foreground: oklch(0.16 0.03 281);
+  --sidebar-accent: oklch(0.28 0.032 281);
+  --sidebar-accent-foreground: oklch(0.93 0.012 281);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.62 0.1 281);
 
   --status-danger: oklch(0.72 0.19 25);
   --status-danger-foreground: oklch(0.16 0.01 25);
@@ -153,6 +166,36 @@
   --status-success: oklch(0.72 0.15 150);
   --status-success-foreground: oklch(0.14 0.01 150);
   --status-success-bg: oklch(0.65 0.15 145 / 16%);
+
+  --brand-navy: oklch(0.28 0.11 281);
+  --brand-navy-light: oklch(0.38 0.11 281);
+  --brand-gold: oklch(0.79 0.16 87);
+  --brand-gold-foreground: oklch(0.2 0.05 281);
+}
+
+/* Scoped light-mode override for surfaces that must render as a fixed,
+   always-light "gate" regardless of the visitor's theme choice (the login
+   card) — custom properties cascade by DOM proximity, so this wins over an
+   ancestor .dark even though it isn't itself a theme root. */
+.light {
+  --background: oklch(0.99 0.003 281);
+  --foreground: oklch(0.2 0.045 281);
+  --card: oklch(1 0.002 281);
+  --card-foreground: oklch(0.2 0.045 281);
+  --popover: oklch(1 0.002 281);
+  --popover-foreground: oklch(0.2 0.045 281);
+  --primary: oklch(0.79 0.16 87);
+  --primary-foreground: oklch(0.2 0.05 281);
+  --secondary: oklch(0.94 0.014 281);
+  --secondary-foreground: oklch(0.25 0.07 281);
+  --muted: oklch(0.955 0.009 281);
+  --muted-foreground: oklch(0.48 0.03 281);
+  --accent: oklch(0.92 0.02 281);
+  --accent-foreground: oklch(0.25 0.07 281);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.885 0.013 281);
+  --input: oklch(0.885 0.013 281);
+  --ring: oklch(0.55 0.09 281);
 }
 
 @layer base {

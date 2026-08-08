@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { getVisibleFormationIds } from "@/lib/scope"
 import { toIsoDate } from "@/lib/format"
+import { conditionBreakdownText, dominantCondition } from "@/lib/condition-breakdown"
 import type { ReturnRow } from "@/components/returns-table"
 
 /** Every return ITEM (equipment line) submitted by any of the given formations. */
@@ -33,11 +34,12 @@ export function toReturnRow(item: ReturnItemWithRelations): ReturnRow {
     formationName: item.return.formation.name,
     equipmentName: item.equipmentName,
     equipmentModel: item.equipmentModel,
-    equipmentSerial: item.equipmentSerial,
     band: item.band,
     status: item.status,
-    condition: item.condition,
-    dateIssued: toIsoDate(item.return.dateIssued),
+    quantity: item.quantity,
+    conditionSummary: conditionBreakdownText(item),
+    conditionTone: dominantCondition(item),
+    dateIssued: toIsoDate(item.dateIssued),
   }
 }
 

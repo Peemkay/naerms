@@ -72,6 +72,8 @@ model Formation {
   returns             Return[]
   statusChanges       StatusHistory[]
   notifications       Notification[]
+  requestsSent        ReturnRequest[] @relation("RequestsSent")
+  requestsReceived    ReturnRequest[] @relation("RequestsReceived")
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -94,7 +96,9 @@ enum ReturnStatus {
 }
 
 // Equipment condition — independent of workflow status. A radio can be
-// UNSERVICEABLE and still PENDING verification at the same time.
+// UNSERVICEABLE and still PENDING verification at the same time. Kept as a
+// standalone enum (used to type the per-condition quantity breakdown below
+// and in application code) even though it no longer backs a single column.
 enum EquipmentCondition {
   SERVICEABLE
   UNSERVICEABLE
@@ -106,11 +110,8 @@ model Return {
   id               String        @id @default(cuid())
   requestRef       String                           // Request Ref — shared by every item below
   auth             String?                          // Auth
-  dateIssued       DateTime?
   formationId      String                           // Fmn/Unit submitting
   formation        Formation     @relation(fields: [formationId], references: [id])
-  howDeployed      String?                          // How Depl
-  purposeOfIssue   String?
 
   items            ReturnItem[]
   notifications    Notification[]
@@ -123,22 +124,37 @@ model Return {
 
 // One physical equipment line within a Return. What used to be the whole
 // "EquipmentReturn" row is now one of these — a Return is the register
-// entry, a ReturnItem is one equipment line on it.
+// entry, a ReturnItem is one equipment line on it. Date issued / deployment
+// mode / purpose live here rather than on Return, since different items in
+// the same request can genuinely have been issued on different dates for
+// different purposes.
 model ReturnItem {
   id               String        @id @default(cuid())
   returnId         String
   return           Return        @relation(fields: [returnId], references: [id], onDelete: Cascade)
   lineNo           Int                              // position within the request (1, 2, 3…)
 
+  dateIssued       DateTime?
+  howDeployed      String?                          // How Depl
+  purposeOfIssue   String?
+
   equipmentName    String
   equipmentModel   String?
   band             String?
   equipmentType    String?
-  equipmentSerial  String                           // physical serial number
   origin           String?
 
   status           ReturnStatus         @default(PENDING)      // workflow state
-  condition        EquipmentCondition?                          // physical/serviceability state
+
+  // Physical/serviceability state, as a breakdown across however many units
+  // of this equipment are in possession — not a single condition. The form
+  // offers an "all in one condition" shortcut that just fills one bucket.
+  quantity              Int              @default(1)
+  serviceableQty        Int              @default(0)
+  unserviceableQty      Int              @default(0)
+  underRepairQty        Int              @default(0)
+  awaitingEvacuationQty Int              @default(0)
+
   remarks          String?
 
   statusHistory    StatusHistory[]
@@ -148,7 +164,6 @@ model ReturnItem {
 
   @@index([returnId])
   @@index([status])
-  @@index([equipmentSerial])
 }
 
 // Full audit trail — required for command-level accountability
@@ -167,21 +182,54 @@ model StatusHistory {
 }
 
 // ---------------------------------------------------------------------
-// NOTIFICATIONS — when a formation submits a Return, every formation in
-// its own subtree (its subordinates) gets one. A leaf UNIT's returns
-// therefore usually notify no one; a Brigade/Command's returns fan out
-// to everything below it. See src/lib/actions/returns.ts.
+// RETURN REQUESTS — any formation can ask any formation under it (anywhere
+// in its own subtree, not just direct children) to submit a return. This is
+// the inverse direction of a Return's own notification fan-out: a Return
+// notifies downward from wherever it was *submitted*; a ReturnRequest
+// notifies downward from wherever it was *asked for*. See
+// src/lib/actions/return-requests.ts.
 // ---------------------------------------------------------------------
 
+model ReturnRequest {
+  id              String     @id @default(cuid())
+  requestRef      String                              // reference for the ask itself
+  message         String?
+  fromFormationId String
+  fromFormation   Formation  @relation("RequestsSent", fields: [fromFormationId], references: [id])
+  toFormationId   String
+  toFormation     Formation  @relation("RequestsReceived", fields: [toFormationId], references: [id])
+  createdAt       DateTime   @default(now())
+
+  notifications   Notification[]
+
+  @@index([toFormationId])
+  @@index([fromFormationId])
+}
+
+// ---------------------------------------------------------------------
+// NOTIFICATIONS — two triggers: submitting a Return notifies every formation
+// in the submitter's own subtree (RETURN_SUBMITTED); asking a subordinate
+// for a return notifies just that formation (RETURN_REQUESTED). Exactly one
+// of returnId/requestId is set, matching `type`.
+// ---------------------------------------------------------------------
+
+enum NotificationType {
+  RETURN_SUBMITTED
+  RETURN_REQUESTED
+}
+
 model Notification {
-  id           String     @id @default(cuid())
-  formationId  String                              // recipient
-  formation    Formation  @relation(fields: [formationId], references: [id])
-  returnId     String
-  return       Return     @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  id           String            @id @default(cuid())
+  formationId  String                                 // recipient
+  formation    Formation         @relation(fields: [formationId], references: [id])
+  type         NotificationType  @default(RETURN_SUBMITTED)
+  returnId     String?
+  return       Return?           @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  requestId    String?
+  request      ReturnRequest?    @relation(fields: [requestId], references: [id], onDelete: Cascade)
   message      String
-  isRead       Boolean    @default(false)
-  createdAt    DateTime   @default(now())
+  isRead       Boolean           @default(false)
+  createdAt    DateTime          @default(now())
 
   @@index([formationId, isRead])
 }

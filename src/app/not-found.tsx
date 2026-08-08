@@ -1,17 +1,21 @@
 import Link from "next/link"
-import { Radio } from "lucide-react"
+import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen flex-1 flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-      <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-primary text-primary-foreground">
-        <Radio className="size-5" />
-      </div>
+    <main className="flex min-h-screen flex-1 flex-col items-center justify-center gap-4 bg-brand-navy px-4 text-center">
+      <Image
+        src="/logo.png"
+        alt="NAERMS"
+        width={64}
+        height={73}
+        className="h-16 w-auto opacity-40 grayscale"
+      />
       <div>
-        <h1 className="text-lg font-semibold">Not found</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-lg font-semibold text-white">Not found</h1>
+        <p className="text-sm text-white/60">
           That page doesn&apos;t exist, or is outside your formation&apos;s scope.
         </p>
       </div>

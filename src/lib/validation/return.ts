@@ -1,9 +1,11 @@
 import { z } from "zod"
 
-// Mirrors the enums in prisma/schema.prisma. Kept as literal Zod enums
+// Mirrors the enums in prisma/schema.prisma. Kept as literal Zod arrays
 // (rather than importing the Prisma enum objects) so this file has no
 // dependency on the Prisma client and can be safely imported from client
-// components for form validation.
+// components for form validation. These are also just *suggestions* now —
+// Band and Equipment Type accept free text via a datalist, so a value
+// outside this list is not an error.
 export const EQUIPMENT_TYPES = [
   "Radio",
   "Antenna",
@@ -47,29 +49,54 @@ export const RETURN_STATUSES = [
 const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).optional().or(z.literal(""))
 
-// One equipment line within a request.
-export const returnItemSchema = z.object({
-  equipmentName: z.string().trim().min(1, "Equipment name is required"),
-  equipmentModel: z.string().trim().optional().or(z.literal("")),
-  band: optionalEnum(BANDS),
-  equipmentType: optionalEnum(EQUIPMENT_TYPES),
-  equipmentSerial: z.string().trim().min(1, "Equipment serial is required"),
-  origin: z.string().trim().optional().or(z.literal("")),
-  condition: optionalEnum(EQUIPMENT_CONDITIONS),
-  remarks: z.string().trim().optional().or(z.literal("")),
-})
+// One equipment line within a request. Date issued / deployment mode /
+// purpose live per item (not per request), since different lines in the
+// same submission can genuinely differ on all three. There's no serial —
+// a line represents however many units of this equipment are in
+// possession, tracked as a quantity + per-condition breakdown, not one
+// serialised unit. Band and Equipment Type are free text (a datalist just
+// suggests the common values), so no enum validation on those either.
+export const returnItemSchema = z
+  .object({
+    dateIssued: z.string().optional().or(z.literal("")), // yyyy-mm-dd from <input type="date">
+    howDeployed: optionalEnum(DEPLOYMENT_MODES),
+    purposeOfIssue: z.string().trim().optional().or(z.literal("")),
+
+    equipmentName: z.string().trim().min(1, "Equipment name is required"),
+    equipmentModel: z.string().trim().optional().or(z.literal("")),
+    band: z.string().trim().optional().or(z.literal("")),
+    equipmentType: z.string().trim().optional().or(z.literal("")),
+    origin: z.string().trim().optional().or(z.literal("")),
+
+    quantity: z.number().int().min(1, "At least 1"),
+    serviceableQty: z.number().int().min(0).default(0),
+    unserviceableQty: z.number().int().min(0).default(0),
+    underRepairQty: z.number().int().min(0).default(0),
+    awaitingEvacuationQty: z.number().int().min(0).default(0),
+    remarks: z.string().trim().optional().or(z.literal("")),
+  })
+  .refine(
+    (item) =>
+      item.serviceableQty + item.unserviceableQty + item.underRepairQty + item.awaitingEvacuationQty ===
+      item.quantity,
+    {
+      message: "Condition breakdown must add up to the total quantity",
+      path: ["quantity"],
+    }
+  )
 
 export type ReturnItemInput = z.infer<typeof returnItemSchema>
 
-// The register-level fields, shared by every item in the request, plus the
-// list of equipment lines. formationId is derived from the session
-// server-side, never taken from client input.
+// The pre-refine shape (no cross-field check yet) — useful as the type for
+// form state, since intermediate edits legitimately don't sum correctly yet.
+export type ReturnItemDraft = z.input<typeof returnItemSchema>
+
+// The request-level fields, shared by every item, plus the list of
+// equipment lines. formationId is derived from the session server-side,
+// never taken from client input.
 export const returnFormSchema = z.object({
   requestRef: z.string().trim().min(1, "Request ref is required"),
   auth: z.string().trim().optional().or(z.literal("")),
-  dateIssued: z.string().optional().or(z.literal("")), // yyyy-mm-dd from <input type="date">
-  howDeployed: optionalEnum(DEPLOYMENT_MODES),
-  purposeOfIssue: z.string().trim().optional().or(z.literal("")),
   items: z.array(returnItemSchema).min(1, "Add at least one equipment item"),
 })
 

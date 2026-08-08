@@ -4,7 +4,8 @@ import { requireSession } from "@/lib/session"
 import { getReturnWithItems } from "@/lib/returns"
 import { getVisibleFormationIds } from "@/lib/scope"
 import { prisma } from "@/lib/prisma"
-import { CONDITION_LABEL, RETURN_STATUS_LABEL } from "@/lib/status"
+import { RETURN_STATUS_LABEL } from "@/lib/status"
+import { conditionBreakdownText } from "@/lib/condition-breakdown"
 import { PrintButton } from "@/components/print-button"
 
 function SignatureLine({ label }: { label: string }) {
@@ -27,6 +28,8 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 // Deliberately outside the /dashboard layout — no sidebar, no nav, no app
 // chrome, and always rendered light (a printed record isn't themed).
+// Any formation that can see this return (its own scope, or one it was
+// notified about) can preview and print it — no privilege required.
 export default async function PrintReturnPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireSession()
@@ -41,11 +44,13 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
 
   return (
     <main className="min-h-screen bg-white px-6 py-10 text-neutral-900 print:p-0">
-      <div className="mx-auto flex max-w-3xl justify-end pb-4 print:hidden">
+      <style>{"@media print { @page { size: landscape; } }"}</style>
+
+      <div className="mx-auto flex max-w-6xl justify-end pb-4 print:hidden">
         <PrintButton />
       </div>
 
-      <div className="mx-auto max-w-3xl border border-neutral-300 p-8 print:border-0">
+      <div className="mx-auto max-w-6xl border border-neutral-300 p-8 print:border-0">
         <div className="mb-6 flex items-center justify-between border-b border-neutral-900 pb-4">
           <div>
             <p className="text-xs tracking-widest text-neutral-500 uppercase">
@@ -63,50 +68,54 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
           <Field label="Request Ref" value={ret.requestRef} />
           <Field label="Fmn/Unit" value={ret.formation.name} />
           <Field label="Auth" value={ret.auth} />
-          <Field
-            label="Date Issued"
-            value={ret.dateIssued?.toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          />
-          <Field label="How Deployed" value={ret.howDeployed} />
-          <Field label="Purpose of Issue" value={ret.purposeOfIssue} />
         </div>
 
-        <table className="mb-8 w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-neutral-900 text-left text-[11px] tracking-wide text-neutral-500 uppercase">
-              <th className="py-1.5 pr-2">Serial</th>
-              <th className="py-1.5 pr-2">Equipment</th>
-              <th className="py-1.5 pr-2">Model</th>
-              <th className="py-1.5 pr-2">Band</th>
-              <th className="py-1.5 pr-2">Type</th>
-              <th className="py-1.5 pr-2">Equipment Serial</th>
-              <th className="py-1.5 pr-2">Origin</th>
-              <th className="py-1.5 pr-2">Condition</th>
-              <th className="py-1.5 pr-2">Status</th>
-              <th className="py-1.5">Remarks</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ret.items.map((item) => (
-              <tr key={item.id} className="border-b border-neutral-200 align-top">
-                <td className="py-1.5 pr-2">{item.lineNo}</td>
-                <td className="py-1.5 pr-2">{item.equipmentName}</td>
-                <td className="py-1.5 pr-2">{item.equipmentModel ?? "—"}</td>
-                <td className="py-1.5 pr-2">{item.band ?? "—"}</td>
-                <td className="py-1.5 pr-2">{item.equipmentType ?? "—"}</td>
-                <td className="py-1.5 pr-2">{item.equipmentSerial}</td>
-                <td className="py-1.5 pr-2">{item.origin ?? "—"}</td>
-                <td className="py-1.5 pr-2">{item.condition ? CONDITION_LABEL[item.condition] : "—"}</td>
-                <td className="py-1.5 pr-2">{RETURN_STATUS_LABEL[item.status]}</td>
-                <td className="py-1.5">{item.remarks ?? "—"}</td>
+        <div className="mb-8 overflow-x-auto">
+          <table className="w-full min-w-[900px] border-collapse text-xs">
+            <thead>
+              <tr className="border-y border-neutral-900 text-left tracking-wide text-neutral-500 uppercase">
+                <th className="py-1.5 pr-2">Line</th>
+                <th className="py-1.5 pr-2">Date Issued</th>
+                <th className="py-1.5 pr-2">How Deployed</th>
+                <th className="py-1.5 pr-2">Purpose</th>
+                <th className="py-1.5 pr-2">Equipment</th>
+                <th className="py-1.5 pr-2">Model</th>
+                <th className="py-1.5 pr-2">Band</th>
+                <th className="py-1.5 pr-2">Type</th>
+                <th className="py-1.5 pr-2">Origin</th>
+                <th className="py-1.5 pr-2">Qty</th>
+                <th className="py-1.5 pr-2">Condition</th>
+                <th className="py-1.5 pr-2">Status</th>
+                <th className="py-1.5">Remarks</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ret.items.map((item) => (
+                <tr key={item.id} className="border-b border-neutral-200 align-top">
+                  <td className="py-1.5 pr-2">{item.lineNo}</td>
+                  <td className="py-1.5 pr-2">
+                    {item.dateIssued?.toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    }) ?? "—"}
+                  </td>
+                  <td className="py-1.5 pr-2">{item.howDeployed ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{item.purposeOfIssue ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{item.equipmentName}</td>
+                  <td className="py-1.5 pr-2">{item.equipmentModel ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{item.band ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{item.equipmentType ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{item.origin ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{item.quantity}</td>
+                  <td className="py-1.5 pr-2">{conditionBreakdownText(item)}</td>
+                  <td className="py-1.5 pr-2">{RETURN_STATUS_LABEL[item.status]}</td>
+                  <td className="py-1.5">{item.remarks ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div className="grid gap-6 border-t border-neutral-900 pt-6 sm:grid-cols-2">
           <SignatureLine label="Name" />

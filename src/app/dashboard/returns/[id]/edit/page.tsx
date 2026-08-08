@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { toIsoDate } from "@/lib/format"
 import { Card, CardContent } from "@/components/ui/card"
 import { ReturnForm } from "@/app/dashboard/new-return/return-form"
-import type { ReturnFormInput, ReturnItemInput } from "@/lib/validation/return"
+import type { ReturnItemDraft } from "@/lib/validation/return"
 
 export default async function EditReturnPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,14 +19,20 @@ export default async function EditReturnPage({ params }: { params: Promise<{ id:
   if (ret.formationId !== session.user.id) redirect("/dashboard")
   if (ret.items.some((item) => item.status !== "PENDING")) redirect(`/dashboard/returns/${ret.id}`)
 
-  const initialItems: ReturnItemInput[] = ret.items.map((item) => ({
+  const initialItems: ReturnItemDraft[] = ret.items.map((item) => ({
+    dateIssued: toIsoDate(item.dateIssued) ?? "",
+    howDeployed: (item.howDeployed ?? "") as ReturnItemDraft["howDeployed"],
+    purposeOfIssue: item.purposeOfIssue ?? "",
     equipmentName: item.equipmentName,
     equipmentModel: item.equipmentModel ?? "",
-    band: (item.band ?? "") as ReturnItemInput["band"],
-    equipmentType: (item.equipmentType ?? "") as ReturnItemInput["equipmentType"],
-    equipmentSerial: item.equipmentSerial,
+    band: item.band ?? "",
+    equipmentType: item.equipmentType ?? "",
     origin: item.origin ?? "",
-    condition: item.condition ?? "",
+    quantity: item.quantity,
+    serviceableQty: item.serviceableQty,
+    unserviceableQty: item.unserviceableQty,
+    underRepairQty: item.underRepairQty,
+    awaitingEvacuationQty: item.awaitingEvacuationQty,
     remarks: item.remarks ?? "",
   }))
 
@@ -44,9 +50,6 @@ export default async function EditReturnPage({ params }: { params: Promise<{ id:
             initialValues={{
               requestRef: ret.requestRef,
               auth: ret.auth ?? "",
-              dateIssued: toIsoDate(ret.dateIssued) ?? "",
-              howDeployed: (ret.howDeployed ?? "") as ReturnFormInput["howDeployed"],
-              purposeOfIssue: ret.purposeOfIssue ?? "",
             }}
             initialItems={initialItems}
           />

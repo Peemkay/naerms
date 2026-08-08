@@ -22,8 +22,7 @@ export type NotificationItem = {
   message: string
   isRead: boolean
   createdAt: Date
-  returnId: string
-  requestRef: string
+  href: string
 }
 
 function timeAgo(date: Date): string {
@@ -61,8 +60,13 @@ export function NotificationBell({
     >
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-            <Bell className={cn("size-4", count > 0 && "text-status-warning")} />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Notifications"
+            className="relative text-white hover:bg-white/10 hover:text-white"
+          >
+            <Bell className={cn("size-4", count > 0 && "text-brand-gold animate-pulse")} />
             {count > 0 && (
               <span className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-status-danger text-[10px] font-medium text-status-danger-foreground">
                 {count > 9 ? "9+" : count}
@@ -83,7 +87,7 @@ export function NotificationBell({
             <DropdownMenuItem
               key={n.id}
               render={
-                <Link href={`/dashboard/returns/${n.returnId}`} className="flex-col items-start!">
+                <Link href={n.href} className="flex-col items-start!">
                   <p className={cn("text-sm", !n.isRead && "font-medium")}>{n.message}</p>
                   <p className="text-xs text-muted-foreground">{timeAgo(n.createdAt)}</p>
                 </Link>

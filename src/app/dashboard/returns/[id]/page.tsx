@@ -6,7 +6,8 @@ import { requireSession } from "@/lib/session"
 import { getReturnWithItems } from "@/lib/returns"
 import { getVisibleFormationIds } from "@/lib/scope"
 import { prisma } from "@/lib/prisma"
-import { CONDITION_LABEL, CONDITION_TONE, RETURN_STATUS_LABEL, RETURN_STATUS_TONE } from "@/lib/status"
+import { RETURN_STATUS_LABEL, RETURN_STATUS_TONE, CONDITION_TONE } from "@/lib/status"
+import { conditionBreakdownText, dominantCondition } from "@/lib/condition-breakdown"
 import { StatusBadge } from "@/components/status-badge"
 import { StatusTimeline } from "@/components/status-timeline"
 import { StatusChangeForm } from "@/components/status-change-form"
@@ -83,69 +84,70 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
         <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
           <Field label="Request Ref" value={ret.requestRef} />
           <Field label="Auth" value={ret.auth} />
-          <Field
-            label="Date Issued"
-            value={ret.dateIssued?.toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          />
-          <Field label="How Deployed" value={ret.howDeployed} />
-          <Field label="Purpose of Issue" value={ret.purposeOfIssue} />
         </CardContent>
       </Card>
 
       <div className="flex flex-col gap-4">
-        {ret.items.map((item) => (
-          <Card key={item.id}>
-            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-medium">
-                  Item {item.lineNo} &middot; {item.equipmentName}
-                </p>
-                <p className="text-xs text-muted-foreground">{item.equipmentSerial}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge tone={RETURN_STATUS_TONE[item.status]}>
-                  {RETURN_STATUS_LABEL[item.status]}
-                </StatusBadge>
-                {item.condition && (
-                  <StatusBadge tone={CONDITION_TONE[item.condition]}>
-                    {CONDITION_LABEL[item.condition]}
+        {ret.items.map((item) => {
+          const tone = dominantCondition(item)
+          return (
+            <Card key={item.id}>
+              <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium">
+                    Item {item.lineNo} &middot; {item.equipmentName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge tone={RETURN_STATUS_TONE[item.status]}>
+                    {RETURN_STATUS_LABEL[item.status]}
                   </StatusBadge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-6 lg:grid-cols-3">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:col-span-2">
-                <Field label="Equipment Model" value={item.equipmentModel} />
-                <Field label="Band" value={item.band} />
-                <Field label="Equipment Type" value={item.equipmentType} />
-                <Field label="Origin" value={item.origin} />
-                {item.remarks && (
-                  <div className="col-span-full">
-                    <Field label="Remarks" value={item.remarks} />
+                  {tone && (
+                    <StatusBadge tone={CONDITION_TONE[tone]}>{conditionBreakdownText(item)}</StatusBadge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-6 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:col-span-2">
+                  <Field
+                    label="Date Issued"
+                    value={item.dateIssued?.toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  />
+                  <Field label="How Deployed" value={item.howDeployed} />
+                  <Field label="Purpose of Issue" value={item.purposeOfIssue} />
+                  <Field label="Equipment Model" value={item.equipmentModel} />
+                  <Field label="Band" value={item.band} />
+                  <Field label="Equipment Type" value={item.equipmentType} />
+                  <Field label="Origin" value={item.origin} />
+                  {item.remarks && (
+                    <div className="col-span-full">
+                      <Field label="Remarks" value={item.remarks} />
+                    </div>
+                  )}
+                  <div className="col-span-full border-t border-border pt-4">
+                    <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Audit Trail
+                    </p>
+                    <StatusTimeline entries={item.statusHistory} />
+                  </div>
+                </div>
+                {canVerify && (
+                  <div>
+                    <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Change Status
+                    </p>
+                    <StatusChangeForm returnItemId={item.id} currentStatus={item.status} />
                   </div>
                 )}
-                <div className="col-span-full border-t border-border pt-4">
-                  <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Audit Trail
-                  </p>
-                  <StatusTimeline entries={item.statusHistory} />
-                </div>
-              </div>
-              {canVerify && (
-                <div>
-                  <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Change Status
-                  </p>
-                  <StatusChangeForm returnItemId={item.id} currentStatus={item.status} />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

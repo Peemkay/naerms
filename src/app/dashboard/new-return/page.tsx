@@ -3,8 +3,13 @@ import { getDefaultOriginForFormation } from "@/lib/formation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ReturnForm } from "./return-form"
 
-export default async function NewReturnPage() {
+export default async function NewReturnPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>
+}) {
   const session = await requireSession()
+  const { ref } = await searchParams
   const defaultOrigin = await getDefaultOriginForFormation(session.user.id)
 
   return (
@@ -22,7 +27,7 @@ export default async function NewReturnPage() {
           your session.
         </CardHeader>
         <CardContent>
-          <ReturnForm mode="create" defaultOrigin={defaultOrigin} />
+          <ReturnForm mode="create" defaultOrigin={defaultOrigin} defaultRequestRef={ref} />
         </CardContent>
       </Card>
     </div>

@@ -16,7 +16,7 @@ import {
   useTable,
 } from "@tanstack/react-table"
 import { ArrowUpDown, Search } from "lucide-react"
-import type { EquipmentCondition, ReturnStatus } from "@prisma/client"
+import type { ReturnStatus, EquipmentCondition } from "@prisma/client"
 
 import { Input } from "@/components/ui/input"
 import {
@@ -27,12 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/status-badge"
-import {
-  CONDITION_LABEL,
-  CONDITION_TONE,
-  RETURN_STATUS_LABEL,
-  RETURN_STATUS_TONE,
-} from "@/lib/status"
+import { RETURN_STATUS_LABEL, RETURN_STATUS_TONE, CONDITION_TONE } from "@/lib/status"
 import { cn } from "@/lib/utils"
 
 export type ReturnRow = {
@@ -43,10 +38,11 @@ export type ReturnRow = {
   formationName: string
   equipmentName: string
   equipmentModel: string | null
-  equipmentSerial: string
   band: string | null
   status: ReturnStatus
-  condition: EquipmentCondition | null
+  quantity: number
+  conditionSummary: string // e.g. "5 Serviceable, 2 Under Repair"
+  conditionTone: EquipmentCondition | null // dominant bucket, for badge color only
   dateIssued: string | null // ISO "yyyy-MM-dd" — sorts correctly as plain text
 }
 
@@ -84,10 +80,13 @@ const columns = helper.columns([
       </div>
     ),
   }),
-  helper.accessor("equipmentSerial", { header: "Equipment Serial" }),
   helper.accessor("band", {
     header: "Band",
     cell: (info) => info.getValue() ?? <span className="text-muted-foreground">—</span>,
+  }),
+  helper.accessor("quantity", {
+    header: "Qty",
+    cell: (info) => <span className="tabular-nums">{info.getValue()}</span>,
   }),
   helper.accessor("dateIssued", {
     header: "Date Issued",
@@ -102,15 +101,14 @@ const columns = helper.columns([
       </StatusBadge>
     ),
   }),
-  helper.accessor("condition", {
+  helper.accessor("conditionSummary", {
     header: "Condition",
-    filterFn: "equalsString",
     cell: (info) => {
-      const value = info.getValue()
-      return value ? (
-        <StatusBadge tone={CONDITION_TONE[value]}>{CONDITION_LABEL[value]}</StatusBadge>
+      const tone = info.row.original.conditionTone
+      return tone ? (
+        <StatusBadge tone={CONDITION_TONE[tone]}>{info.getValue()}</StatusBadge>
       ) : (
-        <span className="text-muted-foreground">—</span>
+        <span className="text-muted-foreground">{info.getValue()}</span>
       )
     },
   }),
@@ -131,20 +129,15 @@ const columns = helper.columns([
 export function ReturnsTable({
   data,
   initialStatus,
-  initialCondition,
 }: {
   data: ReturnRow[]
   initialStatus?: ReturnStatus
-  initialCondition?: EquipmentCondition
 }) {
   const [globalFilter, setGlobalFilter] = useState("")
   const stableData = useMemo(() => data, [data])
   const initialColumnFilters = useMemo(
-    () => [
-      ...(initialStatus ? [{ id: "status", value: initialStatus }] : []),
-      ...(initialCondition ? [{ id: "condition", value: initialCondition }] : []),
-    ],
-    [initialStatus, initialCondition]
+    () => (initialStatus ? [{ id: "status", value: initialStatus }] : []),
+    [initialStatus]
   )
 
   const table = useTable(
@@ -157,7 +150,7 @@ export function ReturnsTable({
       onGlobalFilterChange: setGlobalFilter,
       globalFilterFn: "includesString",
       getColumnCanGlobalFilter: (column) =>
-        ["requestRef", "formationName", "equipmentName", "equipmentSerial"].includes(column.id),
+        ["requestRef", "formationName", "equipmentName"].includes(column.id),
     },
     (state) => ({ sorting: state.sorting, globalFilter: state.globalFilter, columnFilters: state.columnFilters })
   )
@@ -172,7 +165,7 @@ export function ReturnsTable({
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Search ref, equipment, unit, serial…"
+            placeholder="Search ref, equipment, unit…"
             className="pl-8"
           />
         </div>

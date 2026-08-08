@@ -17,6 +17,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       aria-label="Toggle dark mode"
+      className="text-white hover:bg-white/10 hover:text-white"
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
       {mounted && resolvedTheme === "dark" ? (

@@ -1,37 +1,42 @@
-import { Radio } from "lucide-react"
+import Image from "next/image"
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { LoginForm } from "./login-form"
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen flex-1 items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-sm">
+    <main
+      className="relative flex min-h-screen flex-1 items-center justify-center overflow-hidden bg-brand-navy px-4 py-12"
+      style={{
+        backgroundImage:
+          "radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in oklch, var(--brand-navy-light), transparent 15%), transparent)",
+      }}
+    >
+      <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-primary text-primary-foreground">
-            <Radio className="size-5" />
-          </div>
+          <Image src="/logo.png" alt="NAERMS" width={70} height={80} className="h-20 w-auto drop-shadow-lg" priority />
           <div>
-            <h1 className="text-lg font-semibold tracking-wide">NAERMS</h1>
-            <p className="text-sm text-muted-foreground">
-              Nigerian Army Signals Equipment Returns Management System
+            <h1 className="text-xl font-semibold tracking-wide text-white">
+              NAE<span className="text-brand-gold">RMS</span>
+            </h1>
+            <p className="text-sm text-white/60">
+              Nigerian Army Equipment Returns Management System
             </p>
           </div>
         </div>
 
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader className="pb-0">
-            <p className="text-sm font-medium text-foreground">Sign in</p>
-            <p className="text-sm text-muted-foreground">
+        <div className="light rounded-xl border-t-4 border-brand-gold bg-white text-neutral-900 shadow-2xl">
+          <div className="px-6 pt-5 pb-1">
+            <p className="text-sm font-medium">Sign in</p>
+            <p className="text-sm text-neutral-500">
               Sign in with your formation&apos;s email to access its returns.
             </p>
-          </CardHeader>
-          <CardContent className="pt-4">
+          </div>
+          <div className="px-6 pt-4 pb-6">
             <LoginForm />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-white/50">
           Restricted system. Access is logged and limited to authorised personnel.
         </p>
       </div>

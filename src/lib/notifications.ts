@@ -9,6 +9,9 @@ export function getRecentNotifications(formationId: string, limit = 15) {
     where: { formationId },
     orderBy: { createdAt: "desc" },
     take: limit,
-    include: { return: { select: { requestRef: true } } },
+    include: {
+      return: { select: { requestRef: true } },
+      request: { select: { requestRef: true } },
+    },
   })
 }

@@ -16,6 +16,9 @@ export function NavTabs({ items }: { items: { href: string; label: string }[] })
     .filter((item) => matches(item.href))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href
 
+  // Rendered inside the fixed-navy masthead, so styled against that
+  // background directly rather than theme tokens — gold marks the active
+  // tab, echoing the logo's own emphasis on its standout word.
   return (
     <nav className="flex h-14 items-center gap-1">
       {items.map((item) => {
@@ -27,8 +30,8 @@ export function NavTabs({ items }: { items: { href: string; label: string }[] })
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               active
-                ? "bg-secondary text-secondary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "bg-white/10 text-brand-gold"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
             )}
           >
             {item.label}

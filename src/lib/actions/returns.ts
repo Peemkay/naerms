@@ -16,13 +16,19 @@ type ActionResult =
 function toItemData(item: ReturnItemInput, lineNo: number) {
   return {
     lineNo,
+    dateIssued: item.dateIssued ? new Date(item.dateIssued) : null,
+    howDeployed: item.howDeployed || null,
+    purposeOfIssue: item.purposeOfIssue || null,
     equipmentName: item.equipmentName,
     equipmentModel: item.equipmentModel || null,
     band: item.band || null,
     equipmentType: item.equipmentType || null,
-    equipmentSerial: item.equipmentSerial,
     origin: item.origin || null,
-    condition: item.condition || null,
+    quantity: item.quantity,
+    serviceableQty: item.serviceableQty,
+    unserviceableQty: item.unserviceableQty,
+    underRepairQty: item.underRepairQty,
+    awaitingEvacuationQty: item.awaitingEvacuationQty,
     remarks: item.remarks || null,
   }
 }
@@ -48,10 +54,7 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
     data: {
       requestRef: parsed.data.requestRef,
       auth: parsed.data.auth || null,
-      dateIssued: parsed.data.dateIssued ? new Date(parsed.data.dateIssued) : null,
       formationId,
-      howDeployed: parsed.data.howDeployed || null,
-      purposeOfIssue: parsed.data.purposeOfIssue || null,
       items: {
         create: parsed.data.items.map((item, index) => ({
           ...toItemData(item, index + 1),
@@ -68,6 +71,7 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
     await prisma.notification.createMany({
       data: recipients.map((recipientId) => ({
         formationId: recipientId,
+        type: "RETURN_SUBMITTED" as const,
         returnId: created.id,
         message: `${session.user.name} submitted request ${parsed.data.requestRef}`,
       })),
@@ -103,9 +107,6 @@ export async function updateReturnAction(returnId: string, values: unknown): Pro
       data: {
         requestRef: parsed.data.requestRef,
         auth: parsed.data.auth || null,
-        dateIssued: parsed.data.dateIssued ? new Date(parsed.data.dateIssued) : null,
-        howDeployed: parsed.data.howDeployed || null,
-        purposeOfIssue: parsed.data.purposeOfIssue || null,
       },
     }),
     prisma.returnItem.deleteMany({ where: { returnId } }),

@@ -27,6 +27,7 @@ export default async function FormationDrilldownPage({
       basePath={`/dashboard/formations/${id}`}
       filterStatus={status as ReturnStatus | undefined}
       filterCondition={condition as EquipmentCondition | undefined}
+      canRequestReturn={id !== session.user.id}
     />
   )
 }

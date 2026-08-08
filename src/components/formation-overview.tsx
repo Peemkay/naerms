@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react"
 import type { EquipmentCondition, ReturnStatus } from "@prisma/client"
 
 import type { FormationOverviewData } from "@/lib/formation-overview"
-import { countByCondition, countByStatus } from "@/lib/aggregate"
+import { countByStatus, sumByCondition } from "@/lib/aggregate"
 import {
   CONDITION_LABEL,
   CONDITION_TONE,
@@ -14,10 +14,18 @@ import {
 import { FORMATION_ROLE_LABEL, FORMATION_TYPE_TAG } from "@/lib/formation-labels"
 import { StatTile } from "@/components/stat-tile"
 import { ReturnsTable } from "@/components/returns-table"
+import { RequestReturnButton } from "@/components/request-return-button"
 import { toReturnRow } from "@/lib/returns"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 const CONDITIONS = ["SERVICEABLE", "UNSERVICEABLE", "UNDER_REPAIR", "AWAITING_EVACUATION"] as const
+
+const CONDITION_QTY_KEY = {
+  SERVICEABLE: "serviceableQty",
+  UNSERVICEABLE: "unserviceableQty",
+  UNDER_REPAIR: "underRepairQty",
+  AWAITING_EVACUATION: "awaitingEvacuationQty",
+} as const
 
 export function FormationOverview({
   formation,
@@ -25,13 +33,23 @@ export function FormationOverview({
   basePath,
   filterStatus,
   filterCondition,
+  canRequestReturn,
 }: FormationOverviewData & {
   basePath: string
   filterStatus?: ReturnStatus
   filterCondition?: EquipmentCondition
+  canRequestReturn?: boolean
 }) {
   const statusCounts = countByStatus(returnItems)
-  const conditionCounts = countByCondition(returnItems)
+  const conditionSums = sumByCondition(returnItems)
+
+  // Condition is a per-item quantity breakdown, not a single value, so
+  // "filter by condition" means "items with at least one unit in that
+  // bucket" — applied here at the data level rather than as a table
+  // column filter.
+  const visibleItems = filterCondition
+    ? returnItems.filter((item) => item[CONDITION_QTY_KEY[filterCondition]] > 0)
+    : returnItems
 
   const organicRegiments = formation.children.filter((c) => c.type === "SIGNAL_REGIMENT")
   const attachedSignals = formation.children.filter((c) => c.type === "BRIGADE_SIGNALS")
@@ -41,23 +59,26 @@ export function FormationOverview({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-semibold">{formation.name}</h1>
-          <span className="rounded border border-border px-1.5 py-0.5 text-[11px] tracking-wide text-muted-foreground uppercase">
-            {FORMATION_TYPE_TAG[formation.type]}
-          </span>
-          {formation.role && (
-            <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-              {FORMATION_ROLE_LABEL[formation.role]}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-semibold">{formation.name}</h1>
+            <span className="rounded border border-border px-1.5 py-0.5 text-[11px] tracking-wide text-muted-foreground uppercase">
+              {FORMATION_TYPE_TAG[formation.type]}
             </span>
+            {formation.role && (
+              <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                {FORMATION_ROLE_LABEL[formation.role]}
+              </span>
+            )}
+          </div>
+          {formation.attachedTo && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Operationally supporting <span className="font-medium">{formation.attachedTo}</span>
+            </p>
           )}
         </div>
-        {formation.attachedTo && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Operationally supporting <span className="font-medium">{formation.attachedTo}</span>
-          </p>
-        )}
+        {canRequestReturn && <RequestReturnButton toFormationId={formation.id} toFormationName={formation.name} />}
       </div>
 
       {formation.type === "SIGNAL_BRIGADE" && (organicRegiments.length > 0 || attachedSignals.length > 0) && (
@@ -103,14 +124,14 @@ export function FormationOverview({
 
       <div>
         <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          By Equipment Condition
+          By Equipment Condition — unit counts, click to filter
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {CONDITIONS.map((condition) => (
             <StatTile
               key={condition}
               label={CONDITION_LABEL[condition]}
-              value={conditionCounts[condition]}
+              value={conditionSums[condition]}
               tone={CONDITION_TONE[condition]}
               href={`${basePath}?condition=${condition}`}
               active={filterCondition === condition}
@@ -122,7 +143,7 @@ export function FormationOverview({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Returns Registry ({returnItems.length})
+            Returns Registry ({visibleItems.length})
           </p>
           {(filterStatus || filterCondition) && (
             <Link href={basePath} className="text-xs text-primary hover:underline">
@@ -130,11 +151,7 @@ export function FormationOverview({
             </Link>
           )}
         </div>
-        <ReturnsTable
-          data={returnItems.map(toReturnRow)}
-          initialStatus={filterStatus}
-          initialCondition={filterCondition}
-        />
+        <ReturnsTable data={visibleItems.map(toReturnRow)} initialStatus={filterStatus} />
       </div>
     </div>
   )

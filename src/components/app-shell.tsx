@@ -1,5 +1,6 @@
+import Image from "next/image"
 import Link from "next/link"
-import { Radio, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 
 import { auth } from "@/lib/auth"
 import { getRecentNotifications, getUnreadNotificationCount } from "@/lib/notifications"
@@ -25,13 +26,15 @@ export async function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+      {/* The masthead is fixed brand navy in both themes — a letterhead, not
+          a themed surface. Only the content area below adapts to light/dark. */}
+      <header className="sticky top-0 z-40 border-b-2 border-brand-gold bg-brand-navy text-white shadow-sm">
         <div className="flex h-14 items-center gap-6 px-4">
-          <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-wide">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Radio className="size-4" />
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 font-semibold tracking-wide">
+            <Image src="/logo.png" alt="NAERMS" width={30} height={34} className="h-8 w-auto" priority />
+            <span className="hidden sm:inline">
+              NAE<span className="text-brand-gold">RMS</span>
             </span>
-            <span className="hidden sm:inline">NAERMS</span>
           </Link>
 
           {nav}
@@ -40,7 +43,7 @@ export async function AppShell({
             {user && (
               <div className="hidden text-right leading-tight sm:block">
                 <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-white/60">
                   {user.privileges.length > 0
                     ? user.privileges.map((p) => PRIVILEGE_LABELS[p]).join(" · ")
                     : "No privileges assigned"}
@@ -49,7 +52,6 @@ export async function AppShell({
             )}
             {user?.privileges.includes("MANAGE_FORMATIONS") && (
               <Button
-                variant="outline"
                 size="sm"
                 render={
                   <Link href="/dashboard/formations/new">
@@ -66,8 +68,10 @@ export async function AppShell({
                   message: n.message,
                   isRead: n.isRead,
                   createdAt: n.createdAt,
-                  returnId: n.returnId,
-                  requestRef: n.return.requestRef,
+                  href:
+                    n.type === "RETURN_REQUESTED"
+                      ? `/dashboard/new-return?ref=${encodeURIComponent(n.request?.requestRef ?? "")}`
+                      : `/dashboard/returns/${n.returnId}`,
                 }))}
                 unreadCount={unreadCount}
               />
