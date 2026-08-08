@@ -1,5 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
+import * as Sentry from "@sentry/nextjs"
+
 // Only renders if the root layout itself throws — it must supply its own
 // <html>/<body> since it replaces the entire layout tree in that case.
 export default function GlobalError({
@@ -9,6 +12,10 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  useEffect(() => {
+    Sentry.captureException(error)
+  }, [error])
+
   return (
     <html lang="en">
       <body style={{ background: "#221a5d", color: "#e8eaee" }}>
