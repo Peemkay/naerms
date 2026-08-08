@@ -18,6 +18,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           items={[
             { href: "/dashboard", label: "Dashboard" },
             { href: "/dashboard/new-return", label: "New Return" },
+            // Every formation can request returns from formations under it,
+            // same as the inline button on a formation's own overview page —
+            // this is just a direct, always-available entry point that lets
+            // you pick any formation in your tree rather than only the one
+            // you happen to be viewing.
+            { href: "/dashboard/request-returns", label: "Request Returns" },
             ...(canManageAccounts ? [{ href: "/dashboard/accounts", label: "Accounts" }] : []),
           ]}
         />

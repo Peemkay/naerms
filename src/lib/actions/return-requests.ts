@@ -19,10 +19,10 @@ type ActionResult =
 
 /**
  * Any formation can ask any formation under it — anywhere in its own
- * subtree, not just direct children — to submit a return. This is the
- * inverse of submitting a Return (which fans notifications out downward
- * from wherever it was submitted): a request notifies only the specific
- * formation being asked, not its whole subtree too.
+ * subtree, not just direct children — to submit a return. The notification
+ * fans out the same way a Return submission does: to the asked formation
+ * *and* its entire subtree, not just the one formation named — any of them
+ * could plausibly be the one to actually submit the response.
  */
 export async function requestReturnAction(values: unknown): Promise<ActionResult> {
   const session = await requireSession()
@@ -49,16 +49,16 @@ export async function requestReturnAction(values: unknown): Promise<ActionResult
     },
   })
 
-  await prisma.notification.create({
-    data: {
-      formationId: parsed.data.toFormationId,
-      type: "RETURN_REQUESTED",
+  const recipients = await getVisibleFormationIds(parsed.data.toFormationId)
+  await prisma.notification.createMany({
+    data: recipients.map((formationId) => ({
+      formationId,
+      type: "RETURN_REQUESTED" as const,
       requestId: request.id,
       message: `${session.user.name} requested a return — Ref ${parsed.data.requestRef}`,
-    },
+    })),
   })
 
-  revalidatePath("/dashboard")
-  revalidatePath(`/dashboard/formations/${parsed.data.toFormationId}`)
+  revalidatePath("/dashboard", "layout")
   return { success: true, id: request.id }
 }
