@@ -30,11 +30,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npx tsc --noEmit
-
       - name: Lint
         run: npm run lint
 
-      - name: Build
+      # No separate `tsc --noEmit` step: this project uses Next.js's typed
+      # routes, whose ambient types (LayoutProps, PageProps, etc.) only
+      # exist after Next has generated .next/types — which `next build`
+      # does itself before running the exact same type check as part of
+      # its own "Running TypeScript" phase. A standalone tsc step run
+      # first on a clean checkout fails with "Cannot find name
+      # 'LayoutProps'" for that reason (caught by testing this workflow
+      # against a from-scratch checkout, not just locally where a stale
+      # .next from a previous build papered over it).
+      - name: Build (includes type check)
         run: npm run build
