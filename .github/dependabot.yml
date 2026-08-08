@@ -10,6 +10,22 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Both confirmed broken as of 2026-08-08, tested locally against the
+      # actual PRs Dependabot opened (#6, #7): eslint 10 crashes
+      # eslint-config-next's bundled eslint-plugin-react
+      # (context.getFilename is not a function — an ESLint 10 API removal),
+      # and typescript-eslint explicitly refuses to run on TypeScript 7.0
+      # (its new native/Go compiler rewrite; see
+      # https://github.com/typescript-eslint/typescript-eslint/issues/10940).
+      # Neither is fixable from this repo — eslint-config-next itself needs
+      # to bump its bundled eslint-plugin-react/typescript-eslint first
+      # (confirmed not yet done even in its latest canary). Remove these
+      # once that lands upstream and re-test.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions themselves (the CI/CodeQL workflows below) — separate
   # ecosystem, so a bad actions/checkout bump never blocks an npm update.
