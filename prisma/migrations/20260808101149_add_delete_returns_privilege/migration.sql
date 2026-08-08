@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "Privilege" ADD VALUE 'DELETE_RETURNS';

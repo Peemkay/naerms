@@ -169,3 +169,34 @@ export async function changeStatusAction(values: unknown): Promise<ActionResult>
   revalidatePath(`/dashboard/returns/${existing.returnId}`)
   return { success: true, id: existing.returnId }
 }
+
+/**
+ * Permanently erases a return and every equipment item / status history /
+ * notification tied to it. Irreversible by design — gated behind the
+ * DELETE_RETURNS privilege, which is deliberately separate from
+ * VERIFY_RETURNS: moving a return through the workflow is routine, deleting
+ * it is not. Until a formation with this privilege deletes it, a return
+ * (verified or otherwise) is never removed by anything else in the system —
+ * there is no auto-expiry.
+ */
+export async function deleteReturnAction(returnId: string): Promise<ActionResult> {
+  const session = await requireSession()
+  if (!session.user.privileges.includes("DELETE_RETURNS")) {
+    return { error: "Your formation cannot permanently delete returns." }
+  }
+
+  const existing = await prisma.return.findUnique({ where: { id: returnId } })
+  if (!existing) return { error: "Return not found." }
+
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  if (!visibleIds.includes(existing.formationId)) {
+    return { error: "That return is outside your formation's scope." }
+  }
+
+  // ReturnItem, StatusHistory, and Notification all cascade from Return in
+  // the schema, so this one delete removes the entire record cleanly.
+  await prisma.return.delete({ where: { id: returnId } })
+
+  revalidatePath("/dashboard")
+  return { success: true, id: returnId }
+}

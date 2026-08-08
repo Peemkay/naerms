@@ -42,6 +42,8 @@ enum Privilege {
   MANAGE_ACCOUNTS     // set up / reset another formation's login
   MANAGE_PRIVILEGES   // grant or revoke privileges on another formation
   VERIFY_RETURNS      // move a return item through the workflow (verify/flag/close/etc.)
+  DELETE_RETURNS      // permanently erase a return — separate from VERIFY_RETURNS since
+                      // verifying is routine workflow, deleting is irreversible cleanup
 }
 
 model Formation {
