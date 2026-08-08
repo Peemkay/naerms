@@ -9,6 +9,6 @@ export const config = {
   // visitor too (the login page itself renders the logo and needs a
   // favicon), so they can't be gated behind a session redirect.
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|icon\\.svg|apple-icon\\.png|logo\\.png).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|icon\\.svg|apple-icon\\.png|logo\\.png|login-bg\\.jpg).*)",
   ],
 }
