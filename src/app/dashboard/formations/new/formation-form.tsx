@@ -156,7 +156,7 @@ export function FormationForm({
         </Field>
         <Field name="password">
           <FieldLabel>Initial Password</FieldLabel>
-          <Input name="password" type="password" />
+          <Input name="password" type="password" placeholder="password" />
           <FieldDescription>Leave both blank to create the formation without a login yet.</FieldDescription>
           <FieldError />
         </Field>
