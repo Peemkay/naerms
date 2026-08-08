@@ -11,6 +11,7 @@ import { conditionBreakdownText, dominantCondition } from "@/lib/condition-break
 import { StatusBadge } from "@/components/status-badge"
 import { StatusTimeline } from "@/components/status-timeline"
 import { StatusChangeForm } from "@/components/status-change-form"
+import { DeleteReturnButton } from "@/components/delete-return-button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -42,6 +43,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
   const canEdit =
     ret.formationId === session.user.id && ret.items.every((item) => item.status === "PENDING")
   const canVerify = session.user.privileges.includes("VERIFY_RETURNS") && visibleIds.includes(ret.formationId)
+  const canDelete = session.user.privileges.includes("DELETE_RETURNS") && visibleIds.includes(ret.formationId)
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -76,6 +78,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
               }
             />
           )}
+          {canDelete && <DeleteReturnButton returnId={ret.id} requestRef={ret.requestRef} />}
         </div>
       </div>
 

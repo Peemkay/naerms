@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import {
   columnFilteringFeature,
@@ -136,18 +136,24 @@ export function ReturnsTable({
 }) {
   const [globalFilter, setGlobalFilter] = useState("")
   const stableData = useMemo(() => data, [data])
-  const initialColumnFilters = useMemo<ColumnFiltersState>(
-    () => (initialStatus ? [{ id: "status", value: initialStatus }] : []),
-    [initialStatus]
-  )
+  const initialColumnFilters: ColumnFiltersState = initialStatus
+    ? [{ id: "status", value: initialStatus }]
+    : []
+
   // Controlled (not just `initialState`) so that clicking a different status
   // card while this table is already mounted actually re-filters it —
   // `initialState` in TanStack Table only seeds state on first mount, so a
   // client-side nav to a new `?status=` value was previously a no-op here.
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialColumnFilters)
-  useEffect(() => {
+  // Synced from the prop during render (React's "adjusting state when a
+  // prop changes" pattern: react.dev/learn/you-might-not-need-an-effect)
+  // rather than in a useEffect, which would cost an extra render pass and
+  // trip the set-state-in-effect lint rule.
+  const [columnFilters, setColumnFilters] = useState(initialColumnFilters)
+  const [prevInitialStatus, setPrevInitialStatus] = useState(initialStatus)
+  if (prevInitialStatus !== initialStatus) {
+    setPrevInitialStatus(initialStatus)
     setColumnFilters(initialColumnFilters)
-  }, [initialColumnFilters])
+  }
 
   const table = useTable(
     {

@@ -1,17 +1,22 @@
 import type { Privilege } from "@prisma/client"
 
-export const ALL_PRIVILEGES: Privilege[] = [
+// `as const satisfies` keeps this both a literal tuple (so z.enum() in
+// validation/formation.ts can derive proper literal types from it) and
+// checked against Privilege (so a typo here fails to compile).
+export const ALL_PRIVILEGES = [
   "MANAGE_FORMATIONS",
   "MANAGE_ACCOUNTS",
   "MANAGE_PRIVILEGES",
   "VERIFY_RETURNS",
-]
+  "DELETE_RETURNS",
+] as const satisfies readonly Privilege[]
 
 export const PRIVILEGE_LABELS: Record<Privilege, string> = {
   MANAGE_FORMATIONS: "Manage formations",
   MANAGE_ACCOUNTS: "Manage accounts",
   MANAGE_PRIVILEGES: "Assign privileges",
   VERIFY_RETURNS: "Verify returns",
+  DELETE_RETURNS: "Delete returns",
 }
 
 export const PRIVILEGE_DESCRIPTIONS: Record<Privilege, string> = {
@@ -19,6 +24,7 @@ export const PRIVILEGE_DESCRIPTIONS: Record<Privilege, string> = {
   MANAGE_ACCOUNTS: "Set up or reset another formation's login",
   MANAGE_PRIVILEGES: "Grant or revoke privileges on another formation",
   VERIFY_RETURNS: "Move a return item through the workflow (verify/flag/close/etc.)",
+  DELETE_RETURNS: "Permanently erase a return — irreversible, kept separate from Verify",
 }
 
 export function hasPrivilege(privileges: Privilege[], privilege: Privilege): boolean {

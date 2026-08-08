@@ -6,11 +6,11 @@ import ws from "ws"
 import crypto from "node:crypto"
 import bcrypt from "bcryptjs"
 
+import { ALL_PRIVILEGES } from "@/lib/privileges"
+
 neonConfig.webSocketConstructor = ws
 const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
-
-const ALL_PRIVILEGES = ["MANAGE_FORMATIONS", "MANAGE_ACCOUNTS", "MANAGE_PRIVILEGES", "VERIFY_RETURNS"] as const
 
 function generatePassword(): string {
   return crypto.randomBytes(9).toString("base64url") // 12 chars, url-safe

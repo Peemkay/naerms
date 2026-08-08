@@ -1,0 +1,40 @@
+name: CI
+
+# Runs on every PR targeting main (the pre-merge gate) and on pushes to main
+# itself (a safety net for direct pushes/hotfixes). This is the check that
+# was missing before: previously `tsc`/`build` were only ever run by hand,
+# so nothing stopped a broken change from reaching Vercel.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholders only — nothing in the build actually connects to a
+      # database. Static pages that would fail otherwise (env validation in
+      # src/lib/env.ts, Prisma config loading) just need these present.
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_placeholder"
+      AUTH_SECRET: "ci-placeholder-secret-not-used-anywhere-real"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

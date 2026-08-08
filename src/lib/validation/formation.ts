@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { ALL_PRIVILEGES } from "@/lib/privileges"
+
 // ROOT is excluded — there is exactly one (NAS), seeded once, never user-created.
 export const CREATABLE_FORMATION_TYPES = [
   "COMMAND",
@@ -12,12 +14,10 @@ export const CREATABLE_FORMATION_TYPES = [
 
 export const FORMATION_ROLES = ["OPERATIONAL", "SUPPORT", "ATTACHED"] as const
 
-export const PRIVILEGE_VALUES = [
-  "MANAGE_FORMATIONS",
-  "MANAGE_ACCOUNTS",
-  "MANAGE_PRIVILEGES",
-  "VERIFY_RETURNS",
-] as const
+// Derived from ALL_PRIVILEGES (the single source of truth in src/lib/privileges.ts)
+// rather than duplicated here — a hardcoded copy previously drifted out of sync
+// when DELETE_RETURNS was added, silently rejecting it in this schema.
+export const PRIVILEGE_VALUES = ALL_PRIVILEGES
 
 export const formationFormSchema = z
   .object({
