@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { requireSession } from "@/lib/session"
 import { getVisibleFormationIds } from "@/lib/scope"
-import { getDefaultOriginForFormation } from "@/lib/formation"
+import { getDefaultOriginForFormation, getFormationAncestors } from "@/lib/formation"
 import { returnFormSchema, statusChangeSchema, type ReturnItemInput } from "@/lib/validation/return"
 
 type ActionResult =
@@ -64,18 +64,43 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
     },
   })
 
-  // Notify subordinates only — descendants minus the submitter itself.
+  // Notify subordinates — descendants minus the submitter itself.
   const subtree = await getVisibleFormationIds(formationId)
-  const recipients = subtree.filter((id) => id !== formationId)
-  if (recipients.length > 0) {
-    await prisma.notification.createMany({
-      data: recipients.map((recipientId) => ({
-        formationId: recipientId,
-        type: "RETURN_SUBMITTED" as const,
-        returnId: created.id,
-        message: `${session.user.name} submitted request ${parsed.data.requestRef}`,
-      })),
-    })
+  const downwardRecipients = subtree.filter((id) => id !== formationId)
+
+  // If this requestRef answers an open request addressed to this formation
+  // or one of its superiors — requests only ever travel downward (see
+  // requestReturnAction), so the original requester is always somewhere up
+  // this chain — also notify everyone up the chain of command: everyone who
+  // could see the ask gets to see it's been answered, not just whoever
+  // happened to make it.
+  const ancestors = await getFormationAncestors(formationId) // self first, then upward
+  const ancestorIds = ancestors.map((f) => f.id)
+  const fulfilledRequest = await prisma.returnRequest.findFirst({
+    where: { requestRef: parsed.data.requestRef, toFormationId: { in: ancestorIds } },
+    orderBy: { createdAt: "desc" },
+  })
+  const upwardRecipients = fulfilledRequest ? ancestorIds.filter((id) => id !== formationId) : []
+
+  const notifications = [
+    ...downwardRecipients.map((recipientId) => ({
+      formationId: recipientId,
+      type: "RETURN_SUBMITTED" as const,
+      returnId: created.id,
+      message: `${session.user.name} submitted request ${parsed.data.requestRef}`,
+    })),
+    ...(fulfilledRequest
+      ? upwardRecipients.map((recipientId) => ({
+          formationId: recipientId,
+          type: "RETURN_REQUEST_FULFILLED" as const,
+          returnId: created.id,
+          requestId: fulfilledRequest.id,
+          message: `${session.user.name} submitted a return in response to your request — Ref ${parsed.data.requestRef}`,
+        }))
+      : []),
+  ]
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({ data: notifications })
   }
 
   revalidatePath("/dashboard")

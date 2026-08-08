@@ -5,6 +5,7 @@ import { getVisibleFormationIds } from "@/lib/scope"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { AccountActiveToggle } from "@/components/account-active-toggle"
+import { DeleteFormationButton } from "@/components/delete-formation-button"
 import { AccountForm } from "./account-form"
 import { PrivilegesForm } from "./privileges-form"
 
@@ -13,7 +14,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const session = await requireSession()
   const canManageAccounts = session.user.privileges.includes("MANAGE_ACCOUNTS")
   const canManagePrivileges = session.user.privileges.includes("MANAGE_PRIVILEGES")
-  if (!canManageAccounts && !canManagePrivileges) redirect("/dashboard")
+  const canManageFormations = session.user.privileges.includes("MANAGE_FORMATIONS")
+  if (!canManageAccounts && !canManagePrivileges && !canManageFormations) redirect("/dashboard")
 
   const visibleIds = await getVisibleFormationIds(session.user.id)
   if (!visibleIds.includes(id)) notFound()
@@ -53,6 +55,15 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
               assignablePrivileges={session.user.privileges}
               currentPrivileges={formation.privileges}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {canManageFormations && formation.id !== session.user.id && formation.type !== "ROOT" && (
+        <Card className="border-destructive/30">
+          <CardHeader className="text-sm font-medium text-destructive">Danger Zone</CardHeader>
+          <CardContent>
+            <DeleteFormationButton formationId={formation.id} formationName={formation.name} />
           </CardContent>
         </Card>
       )}

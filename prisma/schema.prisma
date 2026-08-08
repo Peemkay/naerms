@@ -209,15 +209,21 @@ model ReturnRequest {
 }
 
 // ---------------------------------------------------------------------
-// NOTIFICATIONS — two triggers: submitting a Return notifies every formation
-// in the submitter's own subtree (RETURN_SUBMITTED); asking a subordinate
-// for a return notifies just that formation (RETURN_REQUESTED). Exactly one
-// of returnId/requestId is set, matching `type`.
+// NOTIFICATIONS — three triggers: submitting a Return notifies every
+// formation in the submitter's own subtree (RETURN_SUBMITTED); requesting a
+// return notifies the asked formation's *entire* subtree, same fan-out
+// shape as a submission (RETURN_REQUESTED); submitting a Return whose
+// requestRef answers an open ReturnRequest additionally notifies every
+// formation up the submitter's chain of command — everyone who could see
+// the original ask — that it's been answered (RETURN_REQUEST_FULFILLED).
+// Exactly one of returnId/requestId is set, matching `type` (fulfilled sets
+// both: the return that answers, the request it answers).
 // ---------------------------------------------------------------------
 
 enum NotificationType {
   RETURN_SUBMITTED
   RETURN_REQUESTED
+  RETURN_REQUEST_FULFILLED
 }
 
 model Notification {
