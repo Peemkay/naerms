@@ -63,10 +63,10 @@ const columns = helper.columns([
   helper.accessor("requestRef", {
     header: "Request Ref",
     cell: (info) => (
-      <div>
-        <div className="font-medium">{info.getValue()}</div>
+      <Link href={`/dashboard/returns/${info.row.original.returnId}`} className="block hover:underline">
+        <div className="font-medium text-primary">{info.getValue()}</div>
         <div className="text-xs text-muted-foreground">Line {info.row.original.lineNo}</div>
-      </div>
+      </Link>
     ),
   }),
   helper.accessor("formationName", { header: "Fmn/Unit" }),
@@ -83,7 +83,7 @@ const columns = helper.columns([
   }),
   helper.accessor("band", {
     header: "Band",
-    cell: (info) => info.getValue() ?? <span className="text-muted-foreground">—</span>,
+    cell: (info) => info.getValue() ?? <span className="text-muted-foreground">N/A</span>,
   }),
   helper.accessor("quantity", {
     header: "Qty",
@@ -91,7 +91,7 @@ const columns = helper.columns([
   }),
   helper.accessor("dateIssued", {
     header: "Date Issued",
-    cell: (info) => info.getValue() ?? <span className="text-muted-foreground">—</span>,
+    cell: (info) => info.getValue() ?? <span className="text-muted-foreground">N/A</span>,
   }),
   helper.accessor("status", {
     header: "Status",
@@ -112,18 +112,6 @@ const columns = helper.columns([
         <span className="text-muted-foreground">{info.getValue()}</span>
       )
     },
-  }),
-  helper.display({
-    id: "actions",
-    header: "",
-    cell: (info) => (
-      <Link
-        href={`/dashboard/returns/${info.row.original.returnId}`}
-        className="text-sm font-medium text-primary hover:underline"
-      >
-        View
-      </Link>
-    ),
   }),
 ])
 
