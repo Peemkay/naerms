@@ -111,8 +111,8 @@ export function FormationForm({
           </SelectContent>
         </Select>
         <FieldDescription>
-          Chain of command — this is who the new formation reports to, not an operational
-          attachment.
+          Chain of command (this is who the new formation reports to, not an operational
+          attachment).
         </FieldDescription>
         <FieldError />
       </Field>

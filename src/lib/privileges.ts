@@ -24,7 +24,7 @@ export const PRIVILEGE_DESCRIPTIONS: Record<Privilege, string> = {
   MANAGE_ACCOUNTS: "Set up or reset another formation's login",
   MANAGE_PRIVILEGES: "Grant or revoke privileges on another formation",
   VERIFY_RETURNS: "Move a return item through the workflow (verify/flag/close/etc.)",
-  DELETE_RETURNS: "Permanently erase a return — irreversible, kept separate from Verify",
+  DELETE_RETURNS: "Permanently erase a return (irreversible, kept separate from Verify)",
 }
 
 export function hasPrivilege(privileges: Privilege[], privilege: Privilege): boolean {

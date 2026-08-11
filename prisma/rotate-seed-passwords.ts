@@ -25,7 +25,7 @@ async function main() {
   })
 
   if (formations.length === 0) {
-    console.log("No formations with an account found — nothing to rotate.")
+    console.log("No formations with an account found (nothing to rotate).")
     return
   }
 

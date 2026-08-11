@@ -123,7 +123,7 @@ export function FormationOverview({
 
       <div>
         <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          By Workflow Status — click a card to filter the registry below
+          By Workflow Status (click a card to filter the registry below)
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {RETURN_STATUS_FLOW.map((status) => (
@@ -141,7 +141,7 @@ export function FormationOverview({
 
       <div>
         <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          By Equipment Condition — unit counts, click to filter
+          By Equipment Condition (unit counts, click to filter)
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {CONDITIONS.map((condition) => (

@@ -23,8 +23,8 @@ export default async function NewReturnPage({
       </div>
       <Card>
         <CardHeader className="text-sm text-muted-foreground">
-          Fields map to the Sigs returns register — Fmn/Unit is filled in automatically from
-          your session.
+          Fields map to the Sigs returns register (Fmn/Unit is filled in automatically from
+          your session).
         </CardHeader>
         <CardContent>
           <ReturnForm mode="create" defaultOrigin={defaultOrigin} defaultRequestRef={ref} />

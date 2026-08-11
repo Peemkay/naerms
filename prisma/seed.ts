@@ -21,7 +21,7 @@ async function main() {
   // rather than fail on a unique constraint partway through.
   const existingRoot = await prisma.formation.findFirst({ where: { type: "ROOT" } })
   if (existingRoot) {
-    console.log("A ROOT formation already exists — skipping seed (already seeded).")
+    console.log("A ROOT formation already exists (skipping seed, already seeded).")
     return
   }
 

@@ -21,7 +21,7 @@ export function conditionBreakdownText(item: QtyBreakdown): string {
   const parts = CONDITION_KEYS.filter(([, key]) => item[key] > 0).map(
     ([condition, key]) => `${item[key]} ${CONDITION_LABEL[condition]}`
   )
-  return parts.length > 0 ? parts.join(", ") : "—"
+  return parts.length > 0 ? parts.join(", ") : "N/A"
 }
 
 /** The condition holding the most units — used only to pick a badge tone. */

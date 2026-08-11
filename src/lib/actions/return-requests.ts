@@ -54,7 +54,7 @@ export async function requestReturnAction(values: unknown): Promise<ActionResult
       formationId: parsed.data.toFormationId,
       type: "RETURN_REQUESTED",
       requestId: request.id,
-      message: `${session.user.name} requested a return — Ref ${parsed.data.requestRef}`,
+      message: `${session.user.name} requested a return (Ref ${parsed.data.requestRef})`,
     },
   })
 

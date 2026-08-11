@@ -19,7 +19,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm">{value ?? <span className="text-muted-foreground">—</span>}</p>
+      <p className="text-sm">{value ?? <span className="text-muted-foreground">N/A</span>}</p>
     </div>
   )
 }
