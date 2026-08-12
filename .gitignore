@@ -46,3 +46,5 @@ next-env.d.ts
 # claude code (local-only; shared .claude/settings.json stays tracked)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+# Claude Code local runtime state
+.claude/

@@ -84,7 +84,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
 
       <Card className="mb-6">
         <CardHeader className="text-sm font-medium">Register Details</CardHeader>
-        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
           <Field label="Request Ref" value={ret.requestRef} />
           <Field label="Auth" value={ret.auth} />
         </CardContent>
@@ -102,7 +102,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
                   </p>
                   <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge tone={RETURN_STATUS_TONE[item.status]}>
                     {RETURN_STATUS_LABEL[item.status]}
                   </StatusBadge>
@@ -112,7 +112,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
                 </div>
               </CardHeader>
               <CardContent className="grid gap-6 lg:grid-cols-3">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:col-span-2">
+                <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3 lg:col-span-2">
                   <Field
                     label="Date Issued"
                     value={item.dateIssued?.toLocaleDateString("en-GB", {

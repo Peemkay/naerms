@@ -94,7 +94,7 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
           </p>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
           <Field label="Request Ref" value={ret.requestRef} />
           <Field label="Fmn/Unit" value={ret.formation.name} />
           <Field label="Auth" value={ret.auth} />

@@ -232,7 +232,7 @@ export function ReturnsTable({
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} className="hover:bg-muted/40">
                 {row.getAllCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-2 align-top">
+                  <td key={cell.id} className="px-3 py-2 align-top whitespace-nowrap">
                     <table.FlexRender cell={cell} />
                   </td>
                 ))}

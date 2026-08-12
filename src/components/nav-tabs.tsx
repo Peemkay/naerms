@@ -28,7 +28,7 @@ export function NavTabs({ items }: { items: { href: string; label: string }[] })
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
               active
                 ? "bg-white/10 text-brand-gold"
                 : "text-white/70 hover:bg-white/10 hover:text-white"
