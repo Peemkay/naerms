@@ -74,7 +74,7 @@ export function RequestReturnForm({ options }: { options: FormationPickerOption[
           </SelectContent>
         </Select>
         <FieldDescription>
-          Any formation under you, anywhere in your tree — not just direct subordinates.
+          Any formation under you, anywhere in your tree (not just direct subordinates).
         </FieldDescription>
         <FieldError />
       </Field>

@@ -43,5 +43,8 @@ next-env.d.ts
 .vercel
 .env*
 
+# claude code (local-only; shared .claude/settings.json stays tracked)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 # Claude Code local runtime state
 .claude/

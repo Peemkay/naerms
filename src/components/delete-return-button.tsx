@@ -55,7 +55,7 @@ export function DeleteReturnButton({ returnId, requestRef }: { returnId: string;
           <DialogTitle>Permanently delete request {requestRef}?</DialogTitle>
           <DialogDescription>
             This erases the request, every equipment item on it, its full audit trail, and related
-            notifications. This cannot be undone — there is no recovery.
+            notifications. This cannot be undone (there is no recovery).
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">

@@ -95,7 +95,7 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
           type: "RETURN_REQUEST_FULFILLED" as const,
           returnId: created.id,
           requestId: fulfilledRequest.id,
-          message: `${session.user.name} submitted a return in response to your request — Ref ${parsed.data.requestRef}`,
+          message: `${session.user.name} submitted a return in response to your request (Ref ${parsed.data.requestRef})`,
         }))
       : []),
   ]

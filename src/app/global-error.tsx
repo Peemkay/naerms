@@ -49,7 +49,7 @@ export default function GlobalError({
           </span>
           <h1 style={{ fontSize: "1.125rem", fontWeight: 600 }}>NAERMS failed to load</h1>
           <p style={{ fontSize: "0.875rem", color: "#c2bfe0", maxWidth: 360 }}>
-            A critical error occurred. Try reloading — if it persists, contact your system
+            A critical error occurred. Try reloading. If it persists, contact your system
             administrator.
           </p>
           {error.digest && (

@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NAERMS — Signals Equipment Returns",
+  title: "NAERMS (Signals Equipment Returns)",
   description:
-    "Nigerian Army Signals Equipment Returns Management System — role-based portal for submitting and tracking equipment returns across the Signals corps.",
+    "Nigerian Army Signals Equipment Returns Management System (role-based portal for submitting and tracking equipment returns across the Signals corps).",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
