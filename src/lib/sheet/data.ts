@@ -99,7 +99,9 @@ export async function getSheetRows(formationId: string): Promise<SheetRow[]> {
         letterOfRequest: item.letterOfRequest ?? "",
         authority: item.authority ?? "",
         dateIssued: toIsoDate(item.dateIssued) ?? "",
-        formationName: item.return.formation.name,
+        // Falls back to the owning formation's name only when the clerk
+        // hasn't named a sub-unit, so an untouched row still reads sensibly.
+        fmnUnitIssued: item.fmnUnitIssued ?? item.return.formation.name,
         howDeployed: item.howDeployed ?? "",
         purposeOfIssue: item.purposeOfIssue ?? "",
         equipmentName: item.equipmentName,

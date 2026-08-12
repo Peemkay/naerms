@@ -34,12 +34,14 @@ export function SheetGrid({
   hiddenColumns,
   onSelect,
   selection,
+  formationName,
 }: {
   rows: SheetRow[]
   canEdit: boolean
   hiddenColumns: string[]
   onSelect?: (selection: GridSelection | null) => void
   selection: GridSelection | null
+  formationName: string
 }) {
   const columns = useMemo(
     () => allColumns().filter((c) => !hiddenColumns.includes(c.key)),
@@ -258,6 +260,17 @@ export function SheetGrid({
     <div ref={containerRef} className="overflow-auto rounded-lg border border-border bg-card">
       <table className="border-collapse text-xs" style={{ tableLayout: "fixed" }}>
         <thead className="sticky top-0 z-20">
+          {/* The formation's name sits above the column headings, exactly as
+              on the paper register where each block is titled with the
+              formation it belongs to. */}
+          <tr>
+            <th
+              colSpan={columns.length + 1}
+              className="border border-border bg-muted px-2 py-2 text-left text-sm font-semibold"
+            >
+              {formationName}
+            </th>
+          </tr>
           <tr>
             {/* Corner cell above the row numbers. */}
             <th className="sticky left-0 z-30 w-12 border border-border bg-muted px-2 py-1.5 text-muted-foreground" />

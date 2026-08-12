@@ -20,6 +20,7 @@ const EDITABLE_ITEM_COLUMNS = new Set([
   "letterOfRequest",
   "authority",
   "dateIssued",
+  "fmnUnitIssued",
   "howDeployed",
   "purposeOfIssue",
   "equipmentName",

@@ -21,13 +21,17 @@ type ActionResult =
 function toItemData(item: ReturnItemInput, lineNo: number) {
   return {
     lineNo,
+    letterOfRequest: item.letterOfRequest || null,
+    authority: item.authority || null,
     dateIssued: item.dateIssued ? new Date(item.dateIssued) : null,
+    fmnUnitIssued: item.fmnUnitIssued || null,
     howDeployed: item.howDeployed || null,
     purposeOfIssue: item.purposeOfIssue || null,
     equipmentName: item.equipmentName,
     equipmentModel: item.equipmentModel || null,
     band: item.band || null,
     equipmentType: item.equipmentType || null,
+    equipmentSerial: item.equipmentSerial || null,
     origin: item.origin || null,
     quantity: item.quantity,
     serviceableQty: item.serviceableQty,

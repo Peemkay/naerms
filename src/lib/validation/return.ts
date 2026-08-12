@@ -19,6 +19,10 @@ export const EQUIPMENT_TYPES = [
 
 export const BANDS = ["HF", "VHF", "UHF", "SHF", "N/A"] as const
 
+// Suggestions only, offered through a datalist. The real registers put a
+// location here ("Bissau"), not one of a fixed set of modes, so a closed
+// enum rejected the values units actually record. Same treatment as Band
+// and Equipment Type: suggest the common answers, accept anything.
 export const DEPLOYMENT_MODES = [
   "Field Exercise",
   "Static - HQ",
@@ -43,12 +47,6 @@ export const RETURN_STATUSES = [
   "CLOSED",
 ] as const
 
-// Base UI's <Select> always submits its hidden input's value, which is ""
-// (not absent) when nothing is picked — so every optional select field must
-// accept "" alongside its real enum values, not just `undefined`.
-const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
-  z.enum(values).optional().or(z.literal(""))
-
 // One equipment line within a request. Date issued / deployment mode /
 // purpose live per item (not per request), since different lines in the
 // same submission can genuinely differ on all three. There's no serial —
@@ -58,14 +56,22 @@ const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
 // suggests the common values), so no enum validation on those either.
 export const returnItemSchema = z
   .object({
+    // Letter of Request / Authority, per the paper register's own columns.
+    letterOfRequest: z.string().trim().optional().or(z.literal("")),
+    authority: z.string().trim().optional().or(z.literal("")),
+
     dateIssued: z.string().optional().or(z.literal("")), // yyyy-mm-dd from <input type="date">
-    howDeployed: optionalEnum(DEPLOYMENT_MODES),
+    // The sub-unit or detachment the equipment went to, which is not the
+    // submitting formation and is often not in the tree at all.
+    fmnUnitIssued: z.string().trim().optional().or(z.literal("")),
+    howDeployed: z.string().trim().optional().or(z.literal("")),
     purposeOfIssue: z.string().trim().optional().or(z.literal("")),
 
     equipmentName: z.string().trim().min(1, "Equipment name is required"),
     equipmentModel: z.string().trim().optional().or(z.literal("")),
     band: z.string().trim().optional().or(z.literal("")),
     equipmentType: z.string().trim().optional().or(z.literal("")),
+    equipmentSerial: z.string().trim().optional().or(z.literal("")),
     origin: z.string().trim().optional().or(z.literal("")),
 
     quantity: z.number().int().min(1, "At least 1"),
@@ -116,7 +122,7 @@ export type ReturnFormInput = z.infer<typeof returnFormSchema>
 // draft can be stored but never filed into the register.
 export const returnItemDraftSchema = z.object({
   dateIssued: z.string().optional().or(z.literal("")),
-  howDeployed: optionalEnum(DEPLOYMENT_MODES),
+  howDeployed: z.string().trim().optional().or(z.literal("")),
   purposeOfIssue: z.string().trim().optional().or(z.literal("")),
 
   equipmentName: z.string().trim().optional().or(z.literal("")),

@@ -23,13 +23,17 @@ export default async function EditReturnPage({ params }: { params: Promise<{ id:
   if (ret.items.some((item) => item.status !== "PENDING")) redirect(`/dashboard/returns/${ret.id}`)
 
   const initialItems: ReturnItemDraft[] = ret.items.map((item) => ({
+    letterOfRequest: item.letterOfRequest ?? "",
+    authority: item.authority ?? "",
     dateIssued: toIsoDate(item.dateIssued) ?? "",
+    fmnUnitIssued: item.fmnUnitIssued ?? "",
     howDeployed: (item.howDeployed ?? "") as ReturnItemDraft["howDeployed"],
     purposeOfIssue: item.purposeOfIssue ?? "",
     equipmentName: item.equipmentName,
     equipmentModel: item.equipmentModel ?? "",
     band: item.band ?? "",
     equipmentType: item.equipmentType ?? "",
+    equipmentSerial: item.equipmentSerial ?? "",
     origin: item.origin ?? "",
     quantity: item.quantity,
     serviceableQty: item.serviceableQty,

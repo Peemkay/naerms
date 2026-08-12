@@ -50,6 +50,7 @@ export function SheetWorkspace({
             hiddenColumns={hiddenColumns}
             selection={selection}
             onSelect={setSelection}
+            formationName={formationName}
           />
         </div>
         <SheetComments

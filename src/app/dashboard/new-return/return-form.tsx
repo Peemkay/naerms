@@ -35,13 +35,17 @@ import { CONDITION_LABEL } from "@/lib/status"
 import { createReturnAction, updateReturnAction, saveDraftAction } from "@/lib/actions/returns"
 
 const EMPTY_ITEM: ReturnItemDraft = {
+  letterOfRequest: "",
+  authority: "",
   dateIssued: "",
+  fmnUnitIssued: "",
   howDeployed: "",
   purposeOfIssue: "",
   equipmentName: "",
   equipmentModel: "",
   band: "",
   equipmentType: "",
+  equipmentSerial: "",
   origin: "",
   quantity: 1,
   serviceableQty: 1,
@@ -245,6 +249,11 @@ export function ReturnForm(props: Props) {
           <option key={b} value={b} />
         ))}
       </datalist>
+      <datalist id="deployment-options">
+        {DEPLOYMENT_MODES.map((mode) => (
+          <option key={mode} value={mode} />
+        ))}
+      </datalist>
       <datalist id="equipment-type-options">
         {EQUIPMENT_TYPES.map((t) => (
           <option key={t} value={t} />
@@ -357,6 +366,24 @@ export function ReturnForm(props: Props) {
                   </div>
 
                   <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Letter of Request</label>
+                    <Input
+                      value={item.letterOfRequest}
+                      onChange={(e) => updateItem(index, { letterOfRequest: e.target.value })}
+                      placeholder="NIL"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Authority</label>
+                    <Input
+                      value={item.authority}
+                      onChange={(e) => updateItem(index, { authority: e.target.value })}
+                      placeholder="e.g. HQ NAS/SOC"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
                     <label className="text-sm font-medium">Date Issued</label>
                     <Input
                       type="date"
@@ -366,22 +393,22 @@ export function ReturnForm(props: Props) {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <label className="text-sm font-medium">How Deployed</label>
-                    <Select
-                      value={item.howDeployed || undefined}
-                      onValueChange={(v) => updateItem(index, { howDeployed: v as ReturnItemDraft["howDeployed"] })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select deployment mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DEPLOYMENT_MODES.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {mode}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-sm font-medium">Fmn/Unit Issued</label>
+                    <Input
+                      value={item.fmnUnitIssued}
+                      onChange={(e) => updateItem(index, { fmnUnitIssued: e.target.value })}
+                      placeholder="e.g. NISIGS ESSMGB"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">How Depl</label>
+                    <Input
+                      list="deployment-options"
+                      value={item.howDeployed}
+                      onChange={(e) => updateItem(index, { howDeployed: e.target.value })}
+                      placeholder="Mode or location, e.g. Bissau"
+                    />
                   </div>
 
                   <div className="grid gap-1.5 sm:col-span-2">
@@ -429,6 +456,15 @@ export function ReturnForm(props: Props) {
                       value={item.equipmentType}
                       onChange={(e) => updateItem(index, { equipmentType: e.target.value })}
                       placeholder="Select or type a new type"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Eqpt Serial</label>
+                    <Input
+                      value={item.equipmentSerial}
+                      onChange={(e) => updateItem(index, { equipmentSerial: e.target.value })}
+                      placeholder="e.g. ESSMGB-01"
                     />
                   </div>
 
