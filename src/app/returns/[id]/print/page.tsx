@@ -27,8 +27,12 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-const th = "border border-neutral-400 py-0.5 px-1 text-left align-bottom break-words"
-const td = "border border-neutral-300 py-0.5 px-1 align-top break-words"
+// Every cell carries a full border on all four sides, in a colour dark
+// enough to survive a low-toner office printer and a phone screen alike —
+// this is a register sheet, so the grid has to read as a grid everywhere.
+// `border-collapse` on the table merges adjacent borders into single lines.
+const th = "border border-neutral-500 py-0.5 px-1 text-left align-bottom break-words"
+const td = "border border-neutral-500 py-0.5 px-1 align-top break-words"
 
 // Deliberately outside the /dashboard layout — no sidebar, no nav, no app
 // chrome, and always rendered light (a printed record isn't themed).
@@ -47,7 +51,7 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
   if (!visibleIds.includes(ret.formationId) && !wasNotified) notFound()
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900 print:p-0">
+    <main className="min-h-screen bg-neutral-100 px-3 py-6 text-neutral-900 sm:px-6 sm:py-10 print:bg-white print:p-0">
       {/* Page numbers come from @page margin boxes: Chromium 131+ and
           Safari 18.2+ support them, Firefox ignores them entirely (bug
           1854974) and prints unnumbered. Declaring any margin box also
@@ -56,8 +60,8 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
       <style>{`
         @media print {
           @page {
-            size: A4 portrait;
-            margin: 12mm;
+            size: A4 landscape;
+            margin: 10mm;
             @bottom-center {
               content: counter(page) "-" counter(pages);
               font-size: 8pt;
@@ -69,15 +73,48 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
             @bottom-center { content: counter(page); }
           }
         }
+
+        /* The sheet is a fixed A4 landscape document, not a responsive
+           layout: it is laid out at a constant 277mm (A4 landscape width
+           less the 10mm margins) and then scaled down as a whole to fit
+           whatever screen is looking at it. Scaling rather than reflowing
+           is what makes the preview a true representation of the printed
+           page — column proportions, borders, and line breaks stay
+           identical on a phone, and nothing is ever hidden off to the right
+           or behind a scroll bar.
+
+           zoom is used rather than a scale() transform because zoom
+           participates in layout: the element's box shrinks with it, so no
+           phantom gap is left underneath. Supported in Chrome, Safari 18+,
+           and Firefox 126+ — the same modern-browser envelope the @page
+           margin boxes above already require.
+
+           The steps are tighter than the portrait version was because the
+           sheet is now half again as wide, so a given screen needs more
+           reduction to fit it. */
+        .sheet-scale { width: 277mm; }
+        @media (max-width: 1180px) { .sheet-scale { zoom: 0.82; } }
+        @media (max-width: 980px) { .sheet-scale { zoom: 0.66; } }
+        @media (max-width: 780px) { .sheet-scale { zoom: 0.52; } }
+        @media (max-width: 620px) { .sheet-scale { zoom: 0.40; } }
+        @media (max-width: 480px) { .sheet-scale { zoom: 0.31; } }
+        @media (max-width: 380px) { .sheet-scale { zoom: 0.25; } }
+        /* Print gets the document at exactly 1:1 — the screen fitting is
+           irrelevant once it's on paper, and @page owns the margins. */
+        @media print {
+          .sheet-scale { width: auto; zoom: 1; }
+        }
       `}</style>
 
-      <div className="mx-auto flex max-w-6xl justify-end pb-4 print:hidden">
+      <div className="mx-auto flex w-fit justify-end pb-4 print:hidden">
         <PrintButton />
       </div>
 
       {/* p-8 is preview-only chrome: in print it would stack on top of the
-          12mm @page margin and eat into the width the table is tuned for. */}
-      <div className="mx-auto max-w-6xl border border-neutral-300 p-8 print:border-0 print:p-0">
+          12mm @page margin and eat into the width the table is tuned for.
+          The white page floats on a grey ground so the sheet's own edges
+          are visible on screen, the way a document preview should read. */}
+      <div className="sheet-scale mx-auto border border-neutral-300 bg-white p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
         <div className="mb-6 flex items-center justify-between border-b border-neutral-900 pb-4">
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="NAERMS" width={44} height={50} className="h-11 w-auto" />
@@ -94,47 +131,51 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
           </p>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+        {/* Fixed 3-up, not responsive: inside .sheet-scale the sheet is
+            always 186mm wide regardless of the device, so a breakpoint here
+            would key off the viewport and rearrange a document that hasn't
+            actually changed width. */}
+        <div className="mb-6 grid grid-cols-3 gap-x-6 gap-y-4">
           <Field label="Request Ref" value={ret.requestRef} />
           <Field label="Fmn/Unit" value={ret.formation.name} />
           <Field label="Auth" value={ret.auth} />
         </div>
 
-        {/* No forced min-width — every column has to fit within the page/
-            container at once (wrapping cell text as needed) rather than
-            relying on horizontal scroll, which on a genuinely narrow
-            preview viewport hid the right-most columns entirely.
-
-            overflow-x-auto is preview-only and must be dropped for print: a
-            scroll container clips to its visible box when paginating, which
-            would print sheet 1 and silently swallow every row after it —
-            exactly the multi-page case this layout exists to serve. */}
-        <div className="mb-8 overflow-x-auto print:overflow-visible">
-          <table className="w-full table-fixed border-collapse text-[9px]">
+        {/* No scroll container at all, on any screen. The sheet is a fixed
+            portrait document — the same 13 columns in the same proportions
+            on a phone as on paper, shrinking to fit rather than sliding
+            sideways. A scroll box here hid the right-most columns on narrow
+            screens and, worse, clipped to sheet one when printing, silently
+            swallowing every later row. */}
+        <div className="mb-8">
+          <table className="w-full table-fixed border-collapse text-[10px]">
             {/* Explicit relative widths, not equal columns — table-fixed
                 needs these to give Equipment/Condition/Remarks room to wrap
                 sensibly instead of splitting every column evenly. Tuned for
-                A4 portrait (~186mm inside the 12mm margins): Date and Status
-                are held wide enough to keep "01 Jan 2026" and "Discrepancy"
-                on one line, and Condition is the widest non-Remarks column
-                because a full breakdown reads "3 Awaiting Evacuation, ...". */}
+                A4 landscape (~277mm inside the 10mm margins), which is wide
+                enough that the fixed-size columns (SER, Date, Qty, Status)
+                can take a smaller share and hand it to the free-text ones.
+                Date and Status stay wide enough to keep "01 Jan 2026" and
+                "Discrepancy" on one line at 10px, and Condition is the
+                widest non-Remarks column because a full breakdown reads
+                "3 Awaiting Evacuation, 2 Under Repair". */}
             <colgroup>
               <col className="w-[3%]" />
-              <col className="w-[8%]" />
               <col className="w-[7%]" />
-              <col className="w-[8%]" />
-              <col className="w-[11%]" />
               <col className="w-[7%]" />
-              <col className="w-[5%]" />
-              <col className="w-[6%]" />
-              <col className="w-[7%]" />
-              <col className="w-[4%]" />
+              <col className="w-[9%]" />
               <col className="w-[12%]" />
               <col className="w-[7%]" />
+              <col className="w-[4%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
+              <col className="w-[3%]" />
+              <col className="w-[13%]" />
+              <col className="w-[6%]" />
               <col className="w-[15%]" />
             </colgroup>
-            {/* Portrait fits fewer rows per sheet, so multi-page prints are
-                the norm now — repeat the header row on each one. */}
+            {/* Multi-page prints are still the norm for a long register, so
+                repeat the header row on each sheet. */}
             <thead className="table-header-group">
               <tr className="tracking-wide text-neutral-500 uppercase">
                 <th className={th}>SER</th>
@@ -180,7 +221,8 @@ export default async function PrintReturnPage({ params }: { params: Promise<{ id
           </table>
         </div>
 
-        <div className="grid gap-6 border-t border-neutral-900 pt-6 break-inside-avoid sm:grid-cols-2">
+        {/* Fixed 2-up for the same reason as the header grid above. */}
+        <div className="grid grid-cols-2 gap-6 border-t border-neutral-900 pt-6 break-inside-avoid">
           <SignatureLine label="Name / Rank" />
           <SignatureLine label="Signature / Date" />
         </div>
