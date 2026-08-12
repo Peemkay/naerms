@@ -12,12 +12,146 @@ import { ALL_PRIVILEGES, canGrant } from "@/lib/privileges"
 import {
   accountFormSchema,
   formationFormSchema,
+  moveFormationSchema,
   privilegesFormSchema,
+  renameFormationSchema,
 } from "@/lib/validation/formation"
 
 type ActionResult =
   | { success: true; id: string }
   | { error: string; fieldErrors?: Record<string, string[] | undefined> }
+
+/**
+ * Renames a formation, and can correct its type, role and attachment.
+ *
+ * Its place in the tree is untouched — moving is a separate, more dangerous
+ * operation (see moveFormationAction). ROOT can be renamed but not
+ * re-typed: there is exactly one root and the whole scope model assumes it.
+ */
+export async function renameFormationAction(
+  formationId: string,
+  values: unknown
+): Promise<ActionResult> {
+  const session = await requirePrivilege("MANAGE_FORMATIONS")
+
+  const parsed = renameFormationSchema.safeParse(values)
+  if (!parsed.success) {
+    return { error: "Check the highlighted fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors }
+  }
+
+  const target = await prisma.formation.findUnique({
+    where: { id: formationId },
+    select: { id: true, type: true },
+  })
+  if (!target) return { error: "That formation no longer exists." }
+
+  // Scope: you can only rename within your own subtree, same rule as every
+  // other formation action.
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  if (!visibleIds.includes(formationId)) {
+    return { error: "That formation is outside your scope." }
+  }
+
+  // ROOT isn't in CREATABLE_FORMATION_TYPES, so a submitted type can never
+  // be "ROOT": any type sent for the root formation is necessarily a change
+  // away from it, which the update below ignores rather than rejects (the
+  // name still needs saving).
+
+  if (parsed.data.type === "BRIGADE_SIGNALS" && !parsed.data.attachedTo) {
+    return {
+      error: "Brigade Signals units must record which formation they support.",
+      fieldErrors: { attachedTo: ["Required for Brigade Signals"] },
+    }
+  }
+
+  await prisma.formation.update({
+    where: { id: formationId },
+    data: {
+      name: parsed.data.name,
+      // ROOT keeps its type; everything else takes what was submitted.
+      ...(target.type === "ROOT" ? {} : { type: parsed.data.type }),
+      role: parsed.data.role || null,
+      attachedTo: parsed.data.attachedTo || null,
+    },
+  })
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true, id: formationId }
+}
+
+/**
+ * Moves a formation — and everything beneath it — under a different parent.
+ *
+ * This is the most destructive non-deleting operation in the system:
+ * `parentId` is what scope is computed from, so re-parenting silently
+ * changes who can see and verify an entire subtree's returns. Hence the
+ * guards below, each of which prevents a specific way of corrupting the
+ * tree:
+ *
+ *   - moving into your own subtree would detach that branch from the root
+ *     entirely, leaving its returns visible to nobody;
+ *   - moving the root would leave the tree with no root at all;
+ *   - both formations must be in the caller's scope, so a brigade cannot
+ *     reach outside its own command to rearrange someone else's units.
+ */
+export async function moveFormationAction(
+  formationId: string,
+  values: unknown
+): Promise<ActionResult> {
+  const session = await requirePrivilege("MANAGE_FORMATIONS")
+
+  const parsed = moveFormationSchema.safeParse(values)
+  if (!parsed.success) {
+    return { error: "Pick the formation it should report to." }
+  }
+  const { parentId } = parsed.data
+
+  const target = await prisma.formation.findUnique({
+    where: { id: formationId },
+    select: { id: true, name: true, type: true, parentId: true },
+  })
+  if (!target) return { error: "That formation no longer exists." }
+
+  if (target.type === "ROOT") {
+    return { error: "The root formation sits at the top of the tree and cannot be moved." }
+  }
+  if (formationId === parentId) {
+    return { error: "A formation cannot report to itself." }
+  }
+  if (target.parentId === parentId) {
+    return { error: `${target.name} already reports to that formation.` }
+  }
+
+  const newParent = await prisma.formation.findUnique({
+    where: { id: parentId },
+    select: { id: true, name: true },
+  })
+  if (!newParent) return { error: "That parent formation no longer exists." }
+
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  if (!visibleIds.includes(formationId) || !visibleIds.includes(parentId)) {
+    return { error: "Both formations must be within your scope." }
+  }
+
+  // The cycle guard. Moving a formation under one of its own descendants
+  // would cut that whole branch loose from the root: it would still exist,
+  // but no scope query starting at the root could ever reach it, so its
+  // returns would vanish from every dashboard while remaining on file.
+  const subtree = await getVisibleFormationIds(formationId)
+  if (subtree.includes(parentId)) {
+    return {
+      error: `${newParent.name} sits under ${target.name}, so moving it there would detach the branch from the chain of command.`,
+    }
+  }
+
+  await prisma.formation.update({
+    where: { id: formationId },
+    data: { parentId },
+  })
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true, id: formationId }
+}
 
 /** Only formations holding MANAGE_FORMATIONS may add new formations. */
 export async function createFormationAction(values: unknown): Promise<ActionResult> {

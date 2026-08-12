@@ -54,3 +54,18 @@ export type AccountFormInput = z.infer<typeof accountFormSchema>
 export const privilegesFormSchema = z.object({
   privileges: z.array(z.enum(PRIVILEGE_VALUES)).default([]),
 })
+
+/** Renaming and re-typing an existing formation, without touching its place in the tree. */
+export const renameFormationSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  type: z.enum(CREATABLE_FORMATION_TYPES),
+  role: z.enum(FORMATION_ROLES).optional().or(z.literal("")),
+  attachedTo: z.string().trim().optional().or(z.literal("")),
+})
+
+export type RenameFormationInput = z.infer<typeof renameFormationSchema>
+
+/** Re-parenting: moving a formation (and everything under it) elsewhere in the tree. */
+export const moveFormationSchema = z.object({
+  parentId: z.string().trim().min(1, "Pick the formation it should report to"),
+})

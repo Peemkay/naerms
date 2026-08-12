@@ -4,6 +4,7 @@ import type { EquipmentCondition, ReturnStatus } from "@prisma/client"
 import { requireSession } from "@/lib/session"
 import { getVisibleFormationIds } from "@/lib/scope"
 import { getFormationOverviewData } from "@/lib/formation-overview"
+import { getFormationOptionsInScope } from "@/lib/formation"
 import { FormationOverview } from "@/components/formation-overview"
 
 export default async function FormationDrilldownPage({
@@ -21,6 +22,14 @@ export default async function FormationDrilldownPage({
   if (!visibleIds.includes(id)) notFound()
 
   const data = await getFormationOverviewData(id)
+  const canManageFormations = session.user.privileges.includes("MANAGE_FORMATIONS")
+  // Candidate parents are the caller's own scope, which is exactly what
+  // moveFormationAction will accept — offering more would just produce a
+  // rejection after the fact.
+  const parentOptions = canManageFormations
+    ? await getFormationOptionsInScope(session.user.id)
+    : undefined
+
   return (
     <FormationOverview
       {...data}
@@ -28,6 +37,8 @@ export default async function FormationDrilldownPage({
       filterStatus={status as ReturnStatus | undefined}
       filterCondition={condition as EquipmentCondition | undefined}
       canRequestReturn={id !== session.user.id}
+      canManageFormations={canManageFormations}
+      parentOptions={parentOptions}
     />
   )
 }

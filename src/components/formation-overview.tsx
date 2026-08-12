@@ -3,6 +3,7 @@ import { ChevronRight, Table2 } from "lucide-react"
 import type { EquipmentCondition, ReturnStatus } from "@prisma/client"
 
 import type { FormationOverviewData } from "@/lib/formation-overview"
+import type { FormationPickerOption } from "@/lib/formation"
 import { countByStatus, sumByCondition } from "@/lib/aggregate"
 import {
   CONDITION_LABEL,
@@ -15,6 +16,7 @@ import { FORMATION_ROLE_LABEL, FORMATION_TYPE_TAG } from "@/lib/formation-labels
 import { StatTile } from "@/components/stat-tile"
 import { ReturnsTable } from "@/components/returns-table"
 import { RequestReturnButton } from "@/components/request-return-button"
+import { EditFormationButton } from "@/components/edit-formation-button"
 import { toReturnRow } from "@/lib/returns"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -48,11 +50,16 @@ export function FormationOverview({
   filterStatus,
   filterCondition,
   canRequestReturn,
+  canManageFormations,
+  parentOptions,
 }: FormationOverviewData & {
   basePath: string
   filterStatus?: ReturnStatus
   filterCondition?: EquipmentCondition
   canRequestReturn?: boolean
+  /** MANAGE_FORMATIONS holders can rename this formation and move it. */
+  canManageFormations?: boolean
+  parentOptions?: FormationPickerOption[]
 }) {
   const statusCounts = countByStatus(returnItems)
   const conditionSums = sumByCondition(returnItems)
@@ -110,6 +117,19 @@ export function FormationOverview({
               </Link>
             }
           />
+          {canManageFormations && parentOptions && (
+            <EditFormationButton
+              formation={{
+                id: formation.id,
+                name: formation.name,
+                type: formation.type,
+                role: formation.role,
+                attachedTo: formation.attachedTo,
+                parentId: formation.parentId,
+              }}
+              parentOptions={parentOptions}
+            />
+          )}
           {canRequestReturn && <RequestReturnButton toFormationId={formation.id} toFormationName={formation.name} />}
         </div>
       </div>
