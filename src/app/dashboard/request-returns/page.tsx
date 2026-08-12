@@ -1,13 +1,18 @@
 import { requireSession } from "@/lib/session"
-import { getFormationOptionsInScope } from "@/lib/formation"
+import { getGroupedFormationsInScope } from "@/lib/formation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { RequestReturnForm } from "./request-return-form"
 
 export default async function RequestReturnsPage() {
   const session = await requireSession()
-  const options = (await getFormationOptionsInScope(session.user.id)).filter(
-    (o) => o.id !== session.user.id
-  )
+  // You can't ask yourself, so drop your own formation from every block and
+  // then any block that leaves empty.
+  const groups = (await getGroupedFormationsInScope(session.user.id))
+    .map((group) => ({
+      ...group,
+      members: group.members.filter((m) => m.id !== session.user.id),
+    }))
+    .filter((group) => group.members.length > 0)
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -21,12 +26,12 @@ export default async function RequestReturnsPage() {
       </div>
       <Card>
         <CardHeader className="text-sm text-muted-foreground">
-          {options.length === 0
+          {groups.length === 0
             ? "No formations under you yet."
-            : "Pick who you're asking and the reference they should submit under."}
+            : "Pick who you're asking. A reference is generated automatically."}
         </CardHeader>
         <CardContent>
-          <RequestReturnForm options={options} />
+          <RequestReturnForm groups={groups} />
         </CardContent>
       </Card>
     </div>

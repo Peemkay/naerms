@@ -13,9 +13,28 @@ const requestReturnSchema = z.object({
   // ReturnRequest row is still created per recipient, keeping the fulfilment
   // lookup in createReturnAction unchanged.
   toFormationIds: z.array(z.string().min(1)).min(1, "Pick at least one formation"),
-  requestRef: z.string().trim().min(1, "Reference is required"),
-  message: z.string().trim().max(500).optional().or(z.literal("")),
 })
+
+/**
+ * Builds the reference both sides quote when the return comes back.
+ *
+ * Generated rather than typed: the form now asks only *who*, and a
+ * hand-typed reference was the main source of responses that couldn't be
+ * matched to their request. Sequence is per calendar year across the whole
+ * system, which is how the paper registers number theirs.
+ */
+async function nextRequestRef(): Promise<string> {
+  const year = new Date().getFullYear()
+  const prefix = `REQ/${year}/`
+  const latest = await prisma.returnRequest.findFirst({
+    where: { requestRef: { startsWith: prefix } },
+    orderBy: { requestRef: "desc" },
+    select: { requestRef: true },
+  })
+  const lastNumber = latest ? Number(latest.requestRef.slice(prefix.length)) : 0
+  const next = Number.isFinite(lastNumber) ? lastNumber + 1 : 1
+  return `${prefix}${String(next).padStart(3, "0")}`
+}
 
 type ActionResult =
   | { success: true; id: string }
@@ -49,14 +68,18 @@ export async function requestReturnAction(values: unknown): Promise<ActionResult
     return { error: "One or more of those formations are not under you." }
   }
 
+  // One reference for the whole ask, shared by every recipient: asking ten
+  // units for the same return is one instruction, and they should all quote
+  // the same ref when they answer.
+  const requestRef = await nextRequestRef()
+
   // One request row per named formation, so each is independently
   // answerable and the existing per-formation fulfilment lookup still works.
   const requests = await prisma.$transaction(
     targetIds.map((toFormationId) =>
       prisma.returnRequest.create({
         data: {
-          requestRef: parsed.data.requestRef,
-          message: parsed.data.message || null,
+          requestRef,
           fromFormationId: session.user.id,
           toFormationId,
         },
@@ -90,7 +113,7 @@ export async function requestReturnAction(values: unknown): Promise<ActionResult
         formationId,
         type: "RETURN_REQUESTED" as const,
         requestId,
-        message: `${session.user.name} requested a return (Ref ${parsed.data.requestRef})`,
+        message: `${session.user.name} requested a return (Ref ${requestRef})`,
       })
     }
   }
