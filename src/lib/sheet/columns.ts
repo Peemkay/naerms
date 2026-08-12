@@ -62,9 +62,9 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   // a register headed "51 SB" carries lines reading "NISIGS ESSMGB" — the
   // sub-unit or detachment the equipment went to, which is often not a
   // formation in the tree at all.
-  { key: "fmnUnitIssued", header: "Fmn/Unit Issuied", kind: "text", width: 150 },
+  { key: "fmnUnitIssued", header: "Fmn/Unit Issued", kind: "text", width: 150 },
   { key: "howDeployed", header: "How Depl", kind: "text", width: 120 },
-  { key: "purposeOfIssue", header: "Purpose of Issuied", kind: "text", width: 150 },
+  { key: "purposeOfIssue", header: "Purpose of Issue", kind: "text", width: 150 },
   { key: "equipmentName", header: "Eqpt Name", kind: "text", width: 220 },
   { key: "equipmentModel", header: "Eqpt Model", kind: "text", width: 150 },
   { key: "band", header: "Band", kind: "text", width: 90 },
@@ -79,44 +79,28 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     options: Object.values(CONDITION_SHEET_LABEL),
   },
   { key: "remarks", header: "Remarks", kind: "text", width: 200 },
-
-  // --- Tracked by the system, folded into prose on paper ---------------
-  {
-    key: "workflow",
-    header: "Workflow",
-    kind: "enum",
-    width: 120,
-    secondary: true,
-    options: WORKFLOW_OPTIONS,
-  },
-  { key: "quantity", header: "Qty", kind: "number", width: 70, secondary: true },
-  { key: "serviceableQty", header: "Svc Qty", kind: "number", width: 80, secondary: true },
-  { key: "unserviceableQty", header: "Unsvc Qty", kind: "number", width: 90, secondary: true },
-  { key: "underRepairQty", header: "Repair Qty", kind: "number", width: 90, secondary: true },
-  { key: "awaitingEvacuationQty", header: "Awaiting Evac Qty", kind: "number", width: 120, secondary: true },
-  { key: "requestRef", header: "Request Ref", kind: "text", width: 130, secondary: true },
 ] as const
 
 export const SHEET_COLUMN_BY_KEY = new Map(SHEET_COLUMNS.map((c) => [c.key, c]))
 
-/** Spare columns past the register's own, for a unit's own working notes. */
-export const EXTRA_COLUMN_COUNT = 4
-export const extraColumnKey = (index: number) => `extra:${index}`
+// Cells stored against a column key that is no longer displayed (from the
+// spare working columns the sheet used to carry). Kept as a predicate so
+// old SheetCell rows are ignored rather than crashing a render.
 export const isExtraColumn = (key: string) => key.startsWith("extra:")
 
-export function extraColumns(): SheetColumn[] {
-  return Array.from({ length: EXTRA_COLUMN_COUNT }, (_, i) => ({
-    key: extraColumnKey(i),
-    // Excel-style letters continuing past the register's columns.
-    header: String.fromCharCode(65 + SHEET_COLUMNS.length + i),
-    kind: "text" as const,
-    width: 120,
-    secondary: true,
-  }))
-}
-
+/**
+ * The sheet is exactly the register's own 15 columns, nothing more.
+ *
+ * There are deliberately no extra or hidden-by-default columns: this sheet
+ * has to match the workbook the units already keep, both on screen and for
+ * an imported file to line up against. Quantity and the per-condition
+ * breakdown stay in the database (the dashboard tallies and the printed
+ * condition text are computed from them) but are not columns here — on the
+ * paper register that information lives in the equipment name
+ * ("32 X RF 5800 Btys") and in this single Status column.
+ */
 export function allColumns(): SheetColumn[] {
-  return [...SHEET_COLUMNS, ...extraColumns()]
+  return [...SHEET_COLUMNS]
 }
 
 /** Spreadsheet-style reference (A1, B7) for the formula engine. */

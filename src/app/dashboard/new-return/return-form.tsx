@@ -32,6 +32,8 @@ import {
   type ReturnItemDraft,
 } from "@/lib/validation/return"
 import { CONDITION_LABEL } from "@/lib/status"
+import { CONDITION_SHEET_LABEL } from "@/lib/sheet/columns"
+import { quantityFromName } from "@/lib/return-io"
 import { createReturnAction, updateReturnAction, saveDraftAction } from "@/lib/actions/returns"
 
 const EMPTY_ITEM: ReturnItemDraft = {
@@ -69,13 +71,16 @@ type Props =
     }
   | { mode: "edit"; returnId: string; initialValues: Omit<ReturnFormInput, "items">; initialItems: ReturnItemDraft[] }
 
-function breakdownSum(item: ReturnItemDraft) {
-  return (
-    (item.serviceableQty ?? 0) +
-    (item.unserviceableQty ?? 0) +
-    (item.underRepairQty ?? 0) +
-    (item.awaitingEvacuationQty ?? 0)
-  )
+/**
+ * The one condition a line is in. The register has a single Status column,
+ * so an item's whole quantity always sits in exactly one bucket; this reads
+ * back whichever that is (defaulting to Serviceable for a fresh item).
+ */
+function conditionOfItem(item: ReturnItemDraft): (typeof EQUIPMENT_CONDITIONS)[number] {
+  if ((item.unserviceableQty ?? 0) > 0) return "UNSERVICEABLE"
+  if ((item.underRepairQty ?? 0) > 0) return "UNDER_REPAIR"
+  if ((item.awaitingEvacuationQty ?? 0) > 0) return "AWAITING_EVACUATION"
+  return "SERVICEABLE"
 }
 
 export function ReturnForm(props: Props) {
@@ -343,8 +348,6 @@ export function ReturnForm(props: Props) {
 
         <div className="flex flex-col gap-3">
           {items.map((item, index) => {
-            const sum = breakdownSum(item)
-            const remaining = (item.quantity ?? 0) - sum
             return (
               <Card key={index}>
                 <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">
@@ -420,10 +423,26 @@ export function ReturnForm(props: Props) {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <label className="text-sm font-medium">Equipment Name</label>
+                    <label className="text-sm font-medium">Eqpt Name</label>
                     <Input
                       value={item.equipmentName}
-                      onChange={(e) => updateItem(index, { equipmentName: e.target.value })}
+                      onChange={(e) => {
+                        // The register carries quantity in the name itself
+                        // ("32 X RF 5800 Btys"), so the count follows what's
+                        // typed here and moves with the chosen Status.
+                        const equipmentName = e.target.value
+                        const quantity = quantityFromName(equipmentName)
+                        const condition = conditionOfItem(item)
+                        updateItem(index, {
+                          equipmentName,
+                          quantity,
+                          serviceableQty: condition === "SERVICEABLE" ? quantity : 0,
+                          unserviceableQty: condition === "UNSERVICEABLE" ? quantity : 0,
+                          underRepairQty: condition === "UNDER_REPAIR" ? quantity : 0,
+                          awaitingEvacuationQty: condition === "AWAITING_EVACUATION" ? quantity : 0,
+                        })
+                      }}
+                      placeholder="e.g. 32 X RF 5800 Btys"
                       required
                     />
                     {itemErrors[index]?.equipmentName && (
@@ -476,67 +495,33 @@ export function ReturnForm(props: Props) {
                     />
                   </div>
 
+                  {/* One Status per line, matching the register's single
+                      column. Quantity isn't asked for separately: the
+                      register writes it into the equipment name ("32 X RF
+                      5800 Btys"), so it's parsed from there and the whole
+                      count sits in the one condition chosen here. */}
                   <div className="grid gap-1.5">
-                    <label className="text-sm font-medium">Quantity in Possession</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const quantity = Math.max(1, Number(e.target.value) || 1)
-                        // Keep a single-condition item in sync automatically;
-                        // once it's a mixed breakdown, leave the split alone.
-                        const wasSingleBucket = breakdownSum(item) === item.quantity
-                        updateItem(index, wasSingleBucket ? { quantity, serviceableQty: quantity, unserviceableQty: 0, underRepairQty: 0, awaitingEvacuationQty: 0 } : { quantity })
-                      }}
-                    />
+                    <label className="text-sm font-medium">Status</label>
+                    <Select
+                      value={conditionOfItem(item)}
+                      onValueChange={(v) => setAllAsCondition(index, v as (typeof EQUIPMENT_CONDITIONS)[number])}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EQUIPMENT_CONDITIONS.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {CONDITION_SHEET_LABEL[c]} ({CONDITION_LABEL[c]})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {itemErrors[index]?.quantity && (
                       <p className="text-sm text-destructive">{itemErrors[index].quantity}</p>
                     )}
-                  </div>
-
-                  <div className="col-span-full grid gap-2 rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium">Condition Breakdown</p>
-                      <Select onValueChange={(v) => setAllAsCondition(index, v as (typeof EQUIPMENT_CONDITIONS)[number])}>
-                        <SelectTrigger size="sm" className="w-48">
-                          <SelectValue placeholder="Set all as…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EQUIPMENT_CONDITIONS.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              All {CONDITION_LABEL[c]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      {(
-                        [
-                          ["serviceableQty", "SERVICEABLE"],
-                          ["unserviceableQty", "UNSERVICEABLE"],
-                          ["underRepairQty", "UNDER_REPAIR"],
-                          ["awaitingEvacuationQty", "AWAITING_EVACUATION"],
-                        ] as const
-                      ).map(([field, condition]) => (
-                        <div key={field} className="grid gap-1">
-                          <label className="text-xs text-muted-foreground">{CONDITION_LABEL[condition]}</label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={item[field]}
-                            onChange={(e) => updateItem(index, { [field]: Math.max(0, Number(e.target.value) || 0) })}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <p className={remaining === 0 ? "text-xs text-muted-foreground" : "text-xs font-medium text-destructive"}>
-                      {remaining === 0
-                        ? `Accounted for all ${item.quantity ?? 0}.`
-                        : remaining > 0
-                          ? `${remaining} unit(s) not yet assigned a condition.`
-                          : `${-remaining} unit(s) over the total quantity.`}
+                    <p className="text-xs text-muted-foreground">
+                      {item.quantity} unit(s), from the equipment name.
                     </p>
                   </div>
 

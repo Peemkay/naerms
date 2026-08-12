@@ -10,24 +10,22 @@ import type { ReturnItemDraft } from "@/lib/validation/return"
  * these in are working from the paper form.
  */
 export const IO_COLUMNS = [
-  { header: "SER", key: "lineNo" },
+  { header: "Serial", key: "lineNo" },
   { header: "Letter of Request", key: "letterOfRequest" },
   { header: "Authority", key: "authority" },
   { header: "Date Issued", key: "dateIssued" },
-  { header: "Fmn/Unit Issuied", key: "fmnUnitIssued" },
+  { header: "Fmn/Unit Issued", key: "fmnUnitIssued" },
   { header: "How Depl", key: "howDeployed" },
-  { header: "Purpose of Issuied", key: "purposeOfIssue" },
+  { header: "Purpose of Issue", key: "purposeOfIssue" },
   { header: "Eqpt Name", key: "equipmentName" },
   { header: "Eqpt Model", key: "equipmentModel" },
   { header: "Band", key: "band" },
   { header: "Eqpt Type", key: "equipmentType" },
   { header: "Eqpt Serial", key: "equipmentSerial" },
   { header: "Origin", key: "origin" },
-  { header: "Qty", key: "quantity" },
-  { header: "Serviceable", key: "serviceableQty" },
-  { header: "Unserviceable", key: "unserviceableQty" },
-  { header: "Under Repair", key: "underRepairQty" },
-  { header: "Awaiting Evacuation", key: "awaitingEvacuationQty" },
+  // The register's single condition column. SVC/UNSVC/etc, not the
+  // workflow state, and not a four-way quantity breakdown.
+  { header: "Status", key: "condition" },
   { header: "Remarks", key: "remarks" },
 ] as const
 
@@ -36,13 +34,33 @@ export type IoColumnKey = (typeof IO_COLUMNS)[number]["key"]
 /** Header row, also used as the downloadable blank template. */
 export const IO_HEADERS = IO_COLUMNS.map((c) => c.header)
 
-const NUMERIC_KEYS = new Set<string>([
-  "quantity",
-  "serviceableQty",
-  "unserviceableQty",
-  "underRepairQty",
-  "awaitingEvacuationQty",
-])
+const NUMERIC_KEYS = new Set<string>(["lineNo"])
+
+/**
+ * Leading multiplier in an equipment name: "32 X RF 5800 Btys" -> 32.
+ *
+ * The register writes quantity into the name rather than a column of its
+ * own, so this is where a line's count comes from on import. Returns 1 when
+ * there's no multiplier, which is what a bare name means.
+ */
+export function quantityFromName(name: string): number {
+  const match = /^\s*(\d+)\s*[xX×]\s+/.exec(name)
+  if (!match) return 1
+  const n = Number(match[1])
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 1
+}
+
+/** Sheet Status text -> the condition bucket it fills. */
+const CONDITION_BY_LABEL: Record<string, "svc" | "unsvc" | "repair" | "evac"> = {
+  SVC: "svc",
+  SERVICEABLE: "svc",
+  UNSVC: "unsvc",
+  UNSERVICEABLE: "unsvc",
+  "UNDER REPAIR": "repair",
+  REPAIR: "repair",
+  "AWAITING EVAC": "evac",
+  "AWAITING EVACUATION": "evac",
+}
 
 /** Normalises a header for matching: case, spacing and punctuation agnostic. */
 function normalizeHeader(value: string): string {
@@ -100,15 +118,20 @@ function toNumberCell(value: unknown): number {
  * validation failure here is not.
  */
 export function rowToItem(row: Record<string, unknown>): ReturnItemDraft {
-  const quantity = Math.max(1, Math.trunc(toNumberCell(row.quantity)) || 1)
+  const equipmentName = String(row.equipmentName ?? "").trim()
 
-  const serviceableQty = Math.max(0, Math.trunc(toNumberCell(row.serviceableQty)))
-  const unserviceableQty = Math.max(0, Math.trunc(toNumberCell(row.unserviceableQty)))
-  const underRepairQty = Math.max(0, Math.trunc(toNumberCell(row.underRepairQty)))
-  const awaitingEvacuationQty = Math.max(0, Math.trunc(toNumberCell(row.awaitingEvacuationQty)))
+  // Quantity comes from the equipment name's leading multiplier, since the
+  // register has no quantity column. An explicit Qty column is still
+  // honoured if a unit's own sheet happens to carry one.
+  const explicitQty = Math.trunc(toNumberCell(row.quantity))
+  const quantity = explicitQty > 0 ? explicitQty : quantityFromName(equipmentName)
 
-  const breakdownTotal =
-    serviceableQty + unserviceableQty + underRepairQty + awaitingEvacuationQty
+  // The single Status column decides the whole line's condition, which is
+  // what one value against one row means on paper. Anything unrecognised
+  // (or blank) falls to Serviceable so the row is valid on arrival and the
+  // clerk can correct it before submitting.
+  const statusText = String(row.condition ?? "").trim().toUpperCase()
+  const bucket = CONDITION_BY_LABEL[statusText] ?? "svc"
 
   return {
     letterOfRequest: String(row.letterOfRequest ?? "").trim(),
@@ -120,21 +143,19 @@ export function rowToItem(row: Record<string, unknown>): ReturnItemDraft {
     // holding a value the schema will later reject.
     howDeployed: (String(row.howDeployed ?? "").trim() || "") as ReturnItemDraft["howDeployed"],
     purposeOfIssue: String(row.purposeOfIssue ?? "").trim(),
-    equipmentName: String(row.equipmentName ?? "").trim(),
+    equipmentName,
     equipmentModel: String(row.equipmentModel ?? "").trim(),
     band: String(row.band ?? "").trim(),
     equipmentType: String(row.equipmentType ?? "").trim(),
     equipmentSerial: String(row.equipmentSerial ?? "").trim(),
     origin: String(row.origin ?? "").trim(),
     quantity,
-    // A sheet with no condition columns filled in (common: the paper form
-    // only records a total) puts everything in Serviceable so the item is
-    // immediately valid. A partially-filled breakdown is left exactly as
-    // typed, so the form's own "N units unassigned" warning can catch it.
-    serviceableQty: breakdownTotal === 0 ? quantity : serviceableQty,
-    unserviceableQty,
-    underRepairQty,
-    awaitingEvacuationQty,
+    // The whole quantity lands in the one bucket the Status column names,
+    // so the breakdown always sums to the quantity and the item is valid.
+    serviceableQty: bucket === "svc" ? quantity : 0,
+    unserviceableQty: bucket === "unsvc" ? quantity : 0,
+    underRepairQty: bucket === "repair" ? quantity : 0,
+    awaitingEvacuationQty: bucket === "evac" ? quantity : 0,
     remarks: String(row.remarks ?? "").trim(),
   }
 }
