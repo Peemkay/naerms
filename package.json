@@ -10,6 +10,7 @@
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-formations": "tsx prisma/seed-formations.ts",
     "db:rotate-passwords": "tsx prisma/rotate-seed-passwords.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset"
