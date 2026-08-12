@@ -43,6 +43,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <FormationTreeSidebar
           tree={tree}
           canAddFormation={session.user.privileges.includes("MANAGE_FORMATIONS")}
+          canMoveFormations={session.user.privileges.includes("MANAGE_FORMATIONS")}
         />
         <main className="min-w-0 flex-1 px-4 py-4 sm:px-6 sm:py-6">{children}</main>
       </div>
