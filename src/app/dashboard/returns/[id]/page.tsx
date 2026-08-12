@@ -8,6 +8,9 @@ import { getVisibleFormationIds } from "@/lib/scope"
 import { prisma } from "@/lib/prisma"
 import { RETURN_STATUS_LABEL, RETURN_STATUS_TONE, CONDITION_TONE } from "@/lib/status"
 import { conditionBreakdownText, dominantCondition } from "@/lib/condition-breakdown"
+import { IO_COLUMNS } from "@/lib/return-io"
+import { toIsoDate } from "@/lib/format"
+import { ExportReturnButton } from "@/components/export-return-button"
 import { StatusBadge } from "@/components/status-badge"
 import { StatusTimeline } from "@/components/status-timeline"
 import { StatusChangeForm } from "@/components/status-change-form"
@@ -55,7 +58,18 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
             {ret.items.length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportReturnButton
+            requestRef={ret.requestRef}
+            rows={ret.items.map((item, index) =>
+              IO_COLUMNS.map((column) => {
+                if (column.key === "lineNo") return index + 1
+                if (column.key === "dateIssued") return toIsoDate(item.dateIssued) ?? ""
+                const value = item[column.key as keyof typeof item]
+                return value == null ? "" : (value as string | number)
+              })
+            )}
+          />
           <Button
             variant="outline"
             size="sm"
