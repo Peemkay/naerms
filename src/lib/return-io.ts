@@ -67,9 +67,47 @@ function normalizeHeader(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "")
 }
 
-const HEADER_LOOKUP = new Map(
-  IO_COLUMNS.map((c) => [normalizeHeader(c.header), c.key as string])
-)
+/**
+ * Header spellings seen in the units' own workbooks, beyond the canonical
+ * ones above. The real files carry "Issuied" for "Issued", a doubled space
+ * in "Letter of  Request", and older sheets name some columns differently
+ * ("Equipment" for "Eqpt Name"). Matching is already case- and
+ * punctuation-insensitive, so only genuinely different words need listing.
+ */
+const HEADER_ALIASES: Record<string, string> = {
+  ser: "lineNo",
+  serialno: "lineNo",
+  sn: "lineNo",
+  equipment: "equipmentName",
+  equipmentitem: "equipmentName",
+  eqpt: "equipmentName",
+  eqptname: "equipmentName",
+  equipmentname: "equipmentName",
+  model: "equipmentModel",
+  equipmentmodel: "equipmentModel",
+  type: "equipmentType",
+  equipmenttype: "equipmentType",
+  eqptserial: "equipmentSerial",
+  equipmentserial: "equipmentSerial",
+  serialnumber: "equipmentSerial",
+  // "Issuied" is the spelling in the live registers.
+  fmnunitissuied: "fmnUnitIssued",
+  fmnunit: "fmnUnitIssued",
+  purposeofissuied: "purposeOfIssue",
+  purpose: "purposeOfIssue",
+  howdepl: "howDeployed",
+  howdeployed: "howDeployed",
+  letterofrequest: "letterOfRequest",
+  auth: "authority",
+  status: "condition",
+  condition: "condition",
+  remark: "remarks",
+}
+
+const HEADER_LOOKUP = new Map<string, string>([
+  ...IO_COLUMNS.map((c) => [normalizeHeader(c.header), c.key as string] as const),
+  ...Object.entries(HEADER_ALIASES),
+])
 
 /**
  * Maps a sheet's header row onto our column keys. Unknown columns map to
@@ -79,6 +117,36 @@ const HEADER_LOOKUP = new Map(
  */
 export function mapHeaderRow(headers: string[]): (string | null)[] {
   return headers.map((h) => HEADER_LOOKUP.get(normalizeHeader(String(h ?? ""))) ?? null)
+}
+
+/**
+ * Finds the header row in a sheet, rather than assuming it is the first.
+ *
+ * The units' workbooks title each block with the formation ("51 SB") on the
+ * row above the headings, and some carry a blank or a report title above
+ * that. Assuming row 1 was the header made every one of those files fail
+ * with "no Equipment column", which is what a clerk sees as "import is
+ * broken".
+ *
+ * Scans the first 20 rows and takes the one mapping the most known columns,
+ * requiring an equipment-name column since a row without one cannot be the
+ * header of a returns register.
+ */
+export function findHeaderRow(rows: unknown[][]): number {
+  let best = -1
+  let bestScore = 0
+
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const keys = mapHeaderRow((rows[i] ?? []).map((c) => String(c ?? "")))
+    if (!keys.includes("equipmentName")) continue
+    const score = keys.filter(Boolean).length
+    if (score > bestScore) {
+      bestScore = score
+      best = i
+    }
+  }
+
+  return best
 }
 
 /**

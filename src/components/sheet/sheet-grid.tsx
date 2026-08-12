@@ -316,11 +316,18 @@ export function SheetGrid({
                       fontWeight: format?.bold ? 600 : undefined,
                       fontStyle: format?.italic ? "italic" : undefined,
                     }}
+                    title={
+                      canEdit && !column.readOnly
+                        ? "Double-click (or press Enter) to edit"
+                        : undefined
+                    }
                     className={cn(
                       "relative border border-border px-2 py-1 align-top",
                       column.readOnly && "bg-muted/40 text-muted-foreground",
                       isSelected && "ring-2 ring-primary ring-inset",
-                      !canEdit && "cursor-default"
+                      canEdit && !column.readOnly
+                        ? "cursor-cell hover:bg-primary/5"
+                        : "cursor-default"
                     )}
                   >
                     {isEditing ? (

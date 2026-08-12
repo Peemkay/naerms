@@ -12,8 +12,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   IO_COLUMNS,
   IO_HEADERS,
+  findHeaderRow,
   isBlankRow,
   mapHeaderRow,
   parseCsv,
@@ -67,6 +75,12 @@ export function ReturnIoButtons({
 }) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  // Set when a workbook has more than one sheet carrying a register, so the
+  // clerk picks which one rather than the importer guessing.
+  const [pendingSheets, setPendingSheets] = useState<
+    { name: string; rows: unknown[][]; dataRows: number }[] | null
+  >(null)
+  const [pendingFileName, setPendingFileName] = useState("")
 
   const baseName = (requestRef.trim() || "return").replace(/[^\w.-]+/g, "-")
 
@@ -121,14 +135,21 @@ export function ReturnIoButtons({
       return
     }
 
-    const keys = mapHeaderRow(rows[0].map((c) => String(c ?? "")))
-    if (!keys.some((k) => k === "equipmentName")) {
-      toast.error("No 'Equipment' column found. Download the template to see the expected headers.")
+    // The header is found, not assumed to be row 1: the units' workbooks
+    // title each block with the formation name on the row above the
+    // headings, so row 1 is "51 SB", not "Serial | Letter of Request | ...".
+    const headerIndex = findHeaderRow(rows)
+    if (headerIndex === -1) {
+      toast.error(
+        "Couldn't find the column headings in that sheet. It needs a row with an Eqpt Name (or Equipment) column."
+      )
       return
     }
 
+    const keys = mapHeaderRow(rows[headerIndex].map((c) => String(c ?? "")))
+
     const parsed: ReturnItemDraft[] = []
-    for (const row of rows.slice(1)) {
+    for (const row of rows.slice(headerIndex + 1)) {
       const record: Record<string, unknown> = {}
       keys.forEach((key, index) => {
         if (key) record[key] = row[index]
@@ -170,19 +191,56 @@ export function ReturnIoButtons({
       const ExcelJS = await import("exceljs")
       const workbook = new ExcelJS.Workbook()
       await workbook.xlsx.load(await file.arrayBuffer())
-      const sheet = workbook.worksheets[0]
-      if (!sheet) {
+      if (workbook.worksheets.length === 0) {
         toast.error("That workbook has no sheets.")
         return
       }
 
-      const rows: unknown[][] = []
-      sheet.eachRow((row) => {
-        // values is 1-based with a leading hole; slice(1) drops it.
-        const values = (row.values as unknown[]).slice(1)
-        rows.push(values.map((v) => (v && typeof v === "object" && "text" in v ? (v as { text: unknown }).text : v)))
-      })
-      ingest(rows, file.name)
+      /** One worksheet's cells as a plain row/column array. */
+      const readSheet = (sheet: (typeof workbook.worksheets)[number]) => {
+        const rows: unknown[][] = []
+        sheet.eachRow((row) => {
+          // values is 1-based with a leading hole; slice(1) drops it.
+          const values = (row.values as unknown[]).slice(1)
+          rows.push(
+            values.map((v) => (v && typeof v === "object" && "text" in v ? (v as { text: unknown }).text : v))
+          )
+        })
+        return rows
+      }
+
+      // A workbook often holds the register on Sheet2 with something else on
+      // Sheet1, so silently taking the first sheet imports the wrong data (or
+      // fails outright). Only sheets that actually contain a header row are
+      // offered, and if exactly one does it is used without asking.
+      const candidates = workbook.worksheets
+        .map((sheet) => ({ sheet, rows: readSheet(sheet) }))
+        .map((entry) => ({ ...entry, headerIndex: findHeaderRow(entry.rows) }))
+        // A sheet needs headings *and* at least one row under them. Real
+        // workbooks carry header-only scratch sheets, and offering those
+        // just invites picking the one that imports nothing.
+        .filter((entry) => entry.headerIndex !== -1 && entry.rows.length > entry.headerIndex + 1)
+
+      if (candidates.length === 0) {
+        toast.error(
+          "No sheet in that workbook has recognisable column headings. Download the template to see the expected headers."
+        )
+        return
+      }
+
+      if (candidates.length === 1) {
+        ingest(candidates[0].rows, `${file.name} (${candidates[0].sheet.name})`)
+        return
+      }
+
+      setPendingSheets(
+        candidates.map((entry) => ({
+          name: entry.sheet.name,
+          rows: entry.rows,
+          dataRows: Math.max(0, entry.rows.length - entry.headerIndex - 1),
+        }))
+      )
+      setPendingFileName(file.name)
     } catch {
       toast.error("Could not read that file. Check it's a .csv or .xlsx.")
     } finally {
@@ -203,6 +261,38 @@ export function ReturnIoButtons({
           if (file) void handleFile(file)
         }}
       />
+
+      {/* Which sheet? Only shown when a workbook holds more than one
+          register, since guessing imports the wrong unit's holdings. */}
+      <Dialog open={pendingSheets !== null} onOpenChange={(open) => !open && setPendingSheets(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Which sheet do you want to import?</DialogTitle>
+            <DialogDescription>
+              {pendingFileName} has {pendingSheets?.length ?? 0} sheets with equipment columns.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {pendingSheets?.map((sheet) => (
+              <Button
+                key={sheet.name}
+                type="button"
+                variant="outline"
+                className="justify-between"
+                onClick={() => {
+                  ingest(sheet.rows, `${pendingFileName} (${sheet.name})`)
+                  setPendingSheets(null)
+                }}
+              >
+                <span className="font-medium">{sheet.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {sheet.dataRows} row{sheet.dataRows === 1 ? "" : "s"}
+                </span>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Button
         type="button"

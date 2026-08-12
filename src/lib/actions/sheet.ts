@@ -315,6 +315,56 @@ export async function saveSheetSettingsAction(input: unknown): Promise<ActionRes
   return { success: true }
 }
 
+/**
+ * Adds a blank line to the formation's own sheet.
+ *
+ * A register grows by someone writing the next line on it, so the sheet has
+ * to be able to do that directly rather than sending the clerk to the New
+ * Return form. The line joins the most recent return when there is one, so
+ * it shares that entry's Request Ref; otherwise a new entry is opened,
+ * referenced by today's date.
+ */
+export async function addSheetRowAction(): Promise<ActionResult & { id?: string }> {
+  const session = await requireSession()
+  const formationId = session.user.id
+
+  const latest = await prisma.return.findFirst({
+    where: { formationId, isDraft: false },
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { items: true } } },
+  })
+
+  if (latest) {
+    const created = await prisma.returnItem.create({
+      data: {
+        returnId: latest.id,
+        lineNo: latest._count.items + 1,
+        equipmentName: "",
+        quantity: 1,
+        serviceableQty: 1,
+      },
+    })
+    revalidatePath("/dashboard/sheet")
+    revalidatePath("/dashboard")
+    return { success: true, id: created.id }
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10)
+  const created = await prisma.return.create({
+    data: {
+      requestRef: `SHEET/${stamp}`,
+      formationId,
+      isDraft: false,
+      items: { create: [{ lineNo: 1, equipmentName: "", quantity: 1, serviceableQty: 1 }] },
+    },
+    include: { items: true },
+  })
+
+  revalidatePath("/dashboard/sheet")
+  revalidatePath("/dashboard")
+  return { success: true, id: created.items[0].id }
+}
+
 /** Deletes a row (and its formatting/comments, by cascade). Owner only. */
 export async function deleteSheetRowAction(returnItemId: string): Promise<ActionResult> {
   const guard = await requireRowOwner(returnItemId)
