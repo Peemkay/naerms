@@ -21,12 +21,15 @@ export function SheetWorkspace({
   canEdit,
   hiddenColumns,
   formationName,
+  groupByFormation = false,
 }: {
   rows: SheetRow[]
   comments: SheetComment[]
   canEdit: boolean
   hiddenColumns: string[]
   formationName: string
+  /** Consolidated subtree sheet: label each formation's block. */
+  groupByFormation?: boolean
 }) {
   const [selection, setSelection] = useState<GridSelection | null>(null)
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -45,6 +48,7 @@ export function SheetWorkspace({
         canEdit={canEdit}
         hiddenColumns={hiddenColumns}
         formationName={formationName}
+        groupByFormation={groupByFormation}
         onClose={() => setEditorOpen(false)}
       />
     )
@@ -85,6 +89,7 @@ export function SheetWorkspace({
             selection={selection}
             onSelect={setSelection}
             formationName={formationName}
+            groupByFormation={groupByFormation}
           />
         </div>
         <SheetComments

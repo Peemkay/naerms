@@ -28,6 +28,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SheetGrid, type GridSelection } from "@/components/sheet/sheet-grid"
 import { SheetComments } from "@/components/sheet/sheet-comments"
+import {
+  EMPTY_FILTERS,
+  SheetFilters,
+  applySheetFilters,
+  type SheetFilterState,
+} from "@/components/sheet/sheet-filters"
 import { allColumns, columnLetter } from "@/lib/sheet/columns"
 import { toCsv } from "@/lib/return-io"
 import {
@@ -67,11 +73,12 @@ type HistoryEntry = {
  * selection when the editor closes.
  */
 export function SheetEditor({
-  rows,
+  rows: allRows,
   comments,
   canEdit,
   hiddenColumns,
   formationName,
+  groupByFormation = false,
   onClose,
 }: {
   rows: SheetRow[]
@@ -79,6 +86,8 @@ export function SheetEditor({
   canEdit: boolean
   hiddenColumns: string[]
   formationName: string
+  /** Consolidated subtree sheet: label each formation's block. */
+  groupByFormation?: boolean
   onClose: () => void
 }) {
   const router = useRouter()
@@ -87,6 +96,11 @@ export function SheetEditor({
   const [busy, setBusy] = useState(false)
   const [undoStack, setUndoStack] = useState<HistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<HistoryEntry[]>([])
+  const [filters, setFilters] = useState<SheetFilterState>(EMPTY_FILTERS)
+
+  // The grid works on the filtered set, so a selection always refers to a
+  // visible row and an edit lands on the row the clerk can actually see.
+  const rows = applySheetFilters(allRows, filters)
 
   const columns = allColumns().filter((c) => !hiddenColumns.includes(c.key))
   const selectedRow = selection ? rows[selection.row] : null
@@ -436,6 +450,21 @@ export function SheetEditor({
         </span>
       </div>
 
+      {/* Filter bar */}
+      <div className="border-b border-border bg-card px-2 py-1.5">
+        <SheetFilters
+          rows={allRows}
+          filters={filters}
+          onChange={(next) => {
+            setFilters(next)
+            // The old selection points into the unfiltered list, so it would
+            // otherwise refer to a different row (or none) after narrowing.
+            setSelection({ row: 0, col: selection?.col ?? 0 })
+          }}
+          matchCount={rows.length}
+        />
+      </div>
+
       {/* Formula bar */}
       <div className="flex items-center gap-2 border-b border-border bg-card px-2 py-1.5">
         <span className="w-16 shrink-0 rounded border border-border px-2 py-1 text-center font-mono text-xs">
@@ -487,6 +516,7 @@ export function SheetEditor({
             selection={selection}
             onSelect={setSelection}
             formationName={formationName}
+            groupByFormation={groupByFormation}
           />
         </div>
         {commentsOpen && (

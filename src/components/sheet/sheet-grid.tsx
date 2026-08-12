@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -35,6 +35,7 @@ export function SheetGrid({
   onSelect,
   selection,
   formationName,
+  groupByFormation = false,
 }: {
   rows: SheetRow[]
   canEdit: boolean
@@ -42,6 +43,8 @@ export function SheetGrid({
   onSelect?: (selection: GridSelection | null) => void
   selection: GridSelection | null
   formationName: string
+  /** Consolidated sheet: start a titled block whenever the formation changes. */
+  groupByFormation?: boolean
 }) {
   const columns = useMemo(
     () => allColumns().filter((c) => !hiddenColumns.includes(c.key)),
@@ -289,7 +292,21 @@ export function SheetGrid({
         </thead>
         <tbody>
           {rows.map((row, rowIndex) => (
-            <tr key={row.id} className="group">
+            <Fragment key={row.id}>
+              {/* On a consolidated sheet each formation gets a titled band,
+                  the way the paper master separates one unit's block from
+                  the next. */}
+              {groupByFormation && row.formationName !== rows[rowIndex - 1]?.formationName && (
+                <tr>
+                  <th
+                    colSpan={columns.length + 1}
+                    className="border border-border bg-muted/80 px-2 py-1.5 text-left text-xs font-semibold"
+                  >
+                    {row.formationName}
+                  </th>
+                </tr>
+              )}
+            <tr className="group">
               <td className="sticky left-0 z-10 border border-border bg-muted px-2 py-1 text-center text-[10px] text-muted-foreground">
                 <span className="flex items-center justify-center gap-1">
                   {rowIndex + 1}
@@ -359,6 +376,7 @@ export function SheetGrid({
                 )
               })}
             </tr>
+            </Fragment>
           ))}
           {rows.length === 0 && (
             <tr>

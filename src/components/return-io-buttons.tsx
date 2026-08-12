@@ -22,6 +22,7 @@ import {
   IO_COLUMNS,
   IO_HEADERS,
   findHeaderRow,
+  findHeaderRows,
   isBlankRow,
   mapHeaderRow,
   parseCsv,
@@ -135,32 +136,39 @@ export function ReturnIoButtons({
       return
     }
 
-    // The header is found, not assumed to be row 1: the units' workbooks
-    // title each block with the formation name on the row above the
-    // headings, so row 1 is "51 SB", not "Serial | Letter of Request | ...".
-    const headerIndex = findHeaderRow(rows)
-    if (headerIndex === -1) {
+    // Headers are found, not assumed to be row 1, and there can be many:
+    // NAS keeps every subordinate's returns on one sheet, each block titled
+    // with its formation and carrying its own header row. Importing only
+    // the first would silently drop eighteen units' holdings.
+    const blocks = findHeaderRows(rows)
+    if (blocks.length === 0) {
       toast.error(
         "Couldn't find the column headings in that sheet. It needs a row with an Eqpt Name (or Equipment) column."
       )
       return
     }
 
-    const keys = mapHeaderRow(rows[headerIndex].map((c) => String(c ?? "")))
-
     const parsed: ReturnItemDraft[] = []
-    for (const row of rows.slice(headerIndex + 1)) {
-      const record: Record<string, unknown> = {}
-      keys.forEach((key, index) => {
-        if (key) record[key] = row[index]
-      })
-      if (isBlankRow(record)) continue
-      const item = rowToItem(record)
-      // An unnamed item can't be submitted and gives the clerk nothing to
-      // correct, so blank-equipment rows are skipped rather than imported
-      // as empty cards.
-      if (!item.equipmentName) continue
-      parsed.push(item)
+    for (const block of blocks) {
+      const keys = mapHeaderRow(rows[block.headerIndex].map((c) => String(c ?? "")))
+      for (const rowIndex of block.dataRows) {
+        const row = rows[rowIndex] ?? []
+        const record: Record<string, unknown> = {}
+        keys.forEach((key, index) => {
+          if (key) record[key] = row[index]
+        })
+        if (isBlankRow(record)) continue
+        const item = rowToItem(record)
+        // An unnamed item can't be submitted and gives the clerk nothing to
+        // correct, so blank-equipment rows are skipped rather than imported
+        // as empty cards.
+        if (!item.equipmentName) continue
+        // A block's title names the formation that block belongs to. It's
+        // kept as the line's Fmn/Unit when the row doesn't state one, so a
+        // consolidated sheet doesn't lose which unit each holding is from.
+        if (!item.fmnUnitIssued && block.title) item.fmnUnitIssued = block.title
+        parsed.push(item)
+      }
     }
 
     if (parsed.length === 0) {

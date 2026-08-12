@@ -52,6 +52,8 @@ export type SheetRow = {
   id: string
   returnId: string
   isDraft: boolean
+  /** Owning formation, so a consolidated subtree sheet can group by it. */
+  formationName: string
   values: Record<string, string | number>
   /** Cell formatting and free-column contents, keyed by column. */
   cells: Record<
@@ -89,12 +91,53 @@ export async function getSheetRows(formationId: string): Promise<SheetRow[]> {
     orderBy: [{ return: { createdAt: "asc" } }, { lineNo: "asc" }],
   })
 
-  return items.map((item) => {
+  return items.map((item) => toSheetRow(item))
+}
+
+/** Shared shape for both the own-formation and consolidated subtree views. */
+function toSheetRow(item: {
+  id: string
+  returnId: string
+  letterOfRequest: string | null
+  authority: string | null
+  dateIssued: Date | null
+  fmnUnitIssued: string | null
+  howDeployed: string | null
+  purposeOfIssue: string | null
+  equipmentName: string
+  equipmentModel: string | null
+  band: string | null
+  equipmentType: string | null
+  equipmentSerial: string | null
+  origin: string | null
+  status: string
+  quantity: number
+  serviceableQty: number
+  unserviceableQty: number
+  underRepairQty: number
+  awaitingEvacuationQty: number
+  remarks: string | null
+  return: { isDraft: boolean; requestRef: string; formation: { name: string } }
+  sheetCells: {
+    columnKey: string
+    value: string | null
+    formula: string | null
+    bold: boolean | null
+    italic: boolean | null
+    fillColor: string | null
+    textColor: string | null
+    numberFormat: string | null
+  }[]
+  _count: { sheetComments: number }
+  sheetComments: { id: string }[]
+}): SheetRow {
+  {
     const condition = conditionOf(item)
     return {
       id: item.id,
       returnId: item.returnId,
       isDraft: item.return.isDraft,
+      formationName: item.return.formation.name,
       values: {
         letterOfRequest: item.letterOfRequest ?? "",
         authority: item.authority ?? "",
@@ -137,7 +180,43 @@ export async function getSheetRows(formationId: string): Promise<SheetRow[]> {
       commentCount: item._count.sheetComments,
       unresolvedComments: item.sheetComments.length,
     }
+  }
+}
+
+/**
+ * Every filed line from a formation *and everything under it*, as one
+ * sheet.
+ *
+ * This is how NAS keeps its master register: one workbook, every
+ * subordinate's returns in it, each block titled with the formation. Any
+ * formation can do the same over its own subtree — a brigade sees its
+ * regiments, a regiment sees its units.
+ *
+ * Always read-only. The rows belong to different formations, and only the
+ * owning formation may change its own holdings (see getSheetAccess); a
+ * consolidated view that let you edit another unit's line would route
+ * straight around that.
+ */
+export async function getSubtreeSheetRows(rootFormationId: string): Promise<SheetRow[]> {
+  const ids = await getVisibleFormationIds(rootFormationId)
+  const items = await prisma.returnItem.findMany({
+    where: { return: { formationId: { in: ids }, isDraft: false } },
+    include: {
+      return: { include: { formation: { select: { id: true, name: true } } } },
+      sheetCells: true,
+      _count: { select: { sheetComments: true } },
+      sheetComments: { where: { resolvedAt: null }, select: { id: true } },
+    },
+    // Grouped by formation, then in register order within each, so the
+    // sheet reads as one block per unit like the paper master does.
+    orderBy: [
+      { return: { formation: { name: "asc" } } },
+      { return: { createdAt: "asc" } },
+      { lineNo: "asc" },
+    ],
   })
+
+  return items.map((item) => toSheetRow(item))
 }
 
 export async function getSheetSettings(formationId: string) {

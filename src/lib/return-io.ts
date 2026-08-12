@@ -133,20 +133,75 @@ export function mapHeaderRow(headers: string[]): (string | null)[] {
  * header of a returns register.
  */
 export function findHeaderRow(rows: unknown[][]): number {
-  let best = -1
-  let bestScore = 0
+  const blocks = findHeaderRows(rows)
+  return blocks.length > 0 ? blocks[0].headerIndex : -1
+}
 
-  for (let i = 0; i < Math.min(rows.length, 20); i++) {
-    const keys = mapHeaderRow((rows[i] ?? []).map((c) => String(c ?? "")))
-    if (!keys.includes("equipmentName")) continue
-    const score = keys.filter(Boolean).length
-    if (score > bestScore) {
-      bestScore = score
-      best = i
-    }
+/** True when a row reads as a column-heading row for the register. */
+function isHeaderRow(row: unknown[]): boolean {
+  const keys = mapHeaderRow((row ?? []).map((c) => String(c ?? "")))
+  return keys.includes("equipmentName") && keys.filter(Boolean).length >= 3
+}
+
+export type SheetBlock = {
+  /** Row index of this block's column headings. */
+  headerIndex: number
+  /** Row indices carrying data, up to the next block's title. */
+  dataRows: number[]
+  /**
+   * The formation this block belongs to, taken from the single-cell title
+   * row above the headings ("51 SB"). Null when there is no such title.
+   */
+  title: string | null
+}
+
+/**
+ * Splits a sheet into register blocks.
+ *
+ * NAS keeps every subordinate formation's returns on one sheet, each block
+ * titled with the formation and carrying its own header row — so a file can
+ * hold nineteen headers, not one. Treating only the first as real imported
+ * one unit's holdings and silently discarded the rest, which on an
+ * equipment register is a serious loss.
+ *
+ * Scans the whole sheet (not just the first rows) and returns every block
+ * in order, with the title above each header where one exists.
+ */
+export function findHeaderRows(rows: unknown[][]): SheetBlock[] {
+  const headerIndices: number[] = []
+  for (let i = 0; i < rows.length; i++) {
+    if (isHeaderRow(rows[i] ?? [])) headerIndices.push(i)
   }
 
-  return best
+  return headerIndices.map((headerIndex, n) => {
+    const end = n + 1 < headerIndices.length ? headerIndices[n + 1] : rows.length
+    const dataRows: number[] = []
+    for (let r = headerIndex + 1; r < end; r++) {
+      const row = rows[r] ?? []
+      // A title row for the *next* block sits between blocks: one filled
+      // cell and nothing else. Stop before it rather than importing it.
+      const filled = row.filter((c) => String(c ?? "").trim() !== "").length
+      if (filled === 0) continue
+      if (filled === 1 && r === end - 1) continue
+      dataRows.push(r)
+    }
+
+    // The block's title is the nearest non-empty row above the headings.
+    // Usually that row holds just the formation ("52 SB"), but Excel's
+    // "format as table" leaves the first block's title alongside generated
+    // names ("51 SB | Column1 | Column2 | ..."), so those are stripped and
+    // the first real cell taken.
+    let title: string | null = null
+    for (let r = headerIndex - 1; r >= 0 && r > headerIndex - 4; r--) {
+      const filled = (rows[r] ?? []).map((c) => String(c ?? "").trim()).filter(Boolean)
+      if (filled.length === 0) continue
+      const meaningful = filled.filter((c) => !/^column\d+$/i.test(c))
+      if (meaningful.length > 0 && meaningful.length <= 2) title = meaningful[0]
+      break
+    }
+
+    return { headerIndex, dataRows, title }
+  })
 }
 
 /**
