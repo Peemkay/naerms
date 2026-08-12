@@ -14,7 +14,7 @@ export default async function RequestReturnsPage() {
       <div className="mb-6">
         <h1 className="text-lg font-semibold">Request Returns from Formations</h1>
         <p className="text-sm text-muted-foreground">
-          Ask any formation under you — anywhere in your tree, not just direct subordinates — to
+          Ask any formation under you (anywhere in your tree, not just direct subordinates) to
           submit a return. They and their own subordinates are notified; when they respond under
           the same Request Ref, you and everyone above you are notified back.
         </p>

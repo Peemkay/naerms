@@ -55,10 +55,8 @@ export default async function AccountsPage() {
                   <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">
                     {f.email ?? <span className="italic">No account</span>}
                   </td>
-                  <td className="px-4 py-2.5">
-                    {!f.email ? "N/A" : f.isActive ? "Active" : "Inactive"}
                   <td className="px-4 py-2.5 whitespace-nowrap">
-                    {!f.email ? "—" : f.isActive ? "Active" : "Inactive"}
+                    {!f.email ? "N/A" : f.isActive ? "Active" : "Inactive"}
                   </td>
                   <td className="px-4 py-2.5 text-xs whitespace-nowrap text-muted-foreground">
                     {f.privileges.length > 0
