@@ -118,6 +118,10 @@ export function ReturnForm(props: Props) {
     props.mode === "create" ? props.draftId : undefined
   )
   const [submitted, setSubmitted] = useState(false)
+  // Imported rows are shown as a compact table to check and submit, rather
+  // than as one editable card per item. Switching to the cards is one
+  // click, for when a line does need correcting before filing.
+  const [reviewImported, setReviewImported] = useState(false)
 
   // Local autosave: the only layer that survives a power cut or a dead
   // network, since both of those make a server save impossible. Only on the
@@ -215,7 +219,18 @@ export function ReturnForm(props: Props) {
           }
           setItemErrors(perItem)
           if (Object.keys(perItem).length > 0) {
-            toast.error("Check the highlighted equipment items.")
+            // The review table can't show a per-field error, so a failure
+            // there would read as a dead Submit button. Drop back to the
+            // cards, where the offending field is actually highlighted.
+            if (reviewImported) {
+              setReviewImported(false)
+              const lines = Object.keys(perItem)
+                .map((i) => Number(i) + 1)
+                .join(", ")
+              toast.error(`Item ${lines} needs attention before this can be submitted.`)
+            } else {
+              toast.error("Check the highlighted equipment items.")
+            }
           }
           return
         }
@@ -331,13 +346,25 @@ export function ReturnForm(props: Props) {
               items={items}
               requestRef={requestRef}
               disabled={pending || savingDraft}
-              onImport={(imported, mode) =>
+              onImport={(imported, mode) => {
                 setItems((prev) =>
                   mode === "append"
                     ? [...prev.filter((item) => item.equipmentName.trim() !== ""), ...imported]
                     : imported
                 )
-              }
+                // An imported sheet is already complete, so the form stops
+                // asking for anything: it shows what arrived as a table to
+                // check, ready to submit. Expanding hundreds of rows into
+                // per-item cards was unreadable and made an import look
+                // like nothing had happened.
+                setReviewImported(true)
+                // Request Ref is the one field submit requires. A file
+                // rarely carries one, so it's filled in rather than left to
+                // fail validation after the clerk presses Submit.
+                if (!requestRef.trim()) {
+                  setRequestRef(`IMP/${new Date().toISOString().slice(0, 10)}`)
+                }
+              }}
             />
             <Button type="button" variant="outline" size="sm" onClick={addItem}>
               <Plus className="size-3.5" />
@@ -346,7 +373,64 @@ export function ReturnForm(props: Props) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        {/* Imported rows: what arrived, ready to file. No fields to fill in
+            — the sheet already carries them — so this is a check-and-submit
+            step rather than data entry. */}
+        {reviewImported && (
+          <div className="mb-3 overflow-x-auto rounded-lg border border-border">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-3 py-2">
+              <p className="text-sm">
+                <span className="font-medium">{items.length} item(s) imported.</span>{" "}
+                <span className="text-muted-foreground">
+                  Check them below, then submit. Nothing else needs filling in.
+                </span>
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setReviewImported(false)}>
+                Edit items individually
+              </Button>
+            </div>
+            <table className="w-full text-xs">
+              <thead className="bg-muted/30 text-left text-muted-foreground">
+                <tr>
+                  <th className="px-2 py-1.5 font-medium">#</th>
+                  <th className="px-2 py-1.5 font-medium">Eqpt Name</th>
+                  <th className="px-2 py-1.5 font-medium">Model</th>
+                  <th className="px-2 py-1.5 font-medium">Serial</th>
+                  <th className="px-2 py-1.5 font-medium">Fmn/Unit</th>
+                  <th className="px-2 py-1.5 font-medium">Qty</th>
+                  <th className="px-2 py-1.5 font-medium">Status</th>
+                  <th className="px-2 py-1.5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {items.map((item, index) => (
+                  <tr key={index} className="hover:bg-muted/30">
+                    <td className="px-2 py-1.5 text-muted-foreground">{index + 1}</td>
+                    <td className="px-2 py-1.5 font-medium">{item.equipmentName || "(none)"}</td>
+                    <td className="px-2 py-1.5">{item.equipmentModel || "N/A"}</td>
+                    <td className="px-2 py-1.5">{item.equipmentSerial || "N/A"}</td>
+                    <td className="px-2 py-1.5">{item.fmnUnitIssued || "N/A"}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{item.quantity}</td>
+                    <td className="px-2 py-1.5">{CONDITION_SHEET_LABEL[conditionOfItem(item)]}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove item ${index + 1}`}
+                        onClick={() => removeItem(index)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className={reviewImported ? "hidden" : "flex flex-col gap-3"}>
           {items.map((item, index) => {
             return (
               <Card key={index}>
@@ -579,7 +663,13 @@ export function ReturnForm(props: Props) {
             </>
           )}
           <Button type="submit" disabled={pending || savingDraft}>
-            {pending ? "Submitting…" : props.mode === "create" ? "Submit Return" : "Save Changes"}
+            {pending
+              ? "Submitting…"
+              : props.mode !== "create"
+                ? "Save Changes"
+                : reviewImported
+                  ? `Submit ${items.length} Imported Item(s)`
+                  : "Submit Return"}
           </Button>
         </div>
       </div>
