@@ -60,13 +60,17 @@ export default async function NewReturnPage({
             draftId={draft?.id}
             draftValues={draft ? { requestRef: draft.requestRef, auth: draft.auth ?? "" } : undefined}
             draftItems={draft?.items.map((item) => ({
+              letterOfRequest: item.letterOfRequest ?? "",
+              authority: item.authority ?? "",
               dateIssued: toIsoDate(item.dateIssued) ?? "",
+              fmnUnitIssued: item.fmnUnitIssued ?? "",
               howDeployed: (item.howDeployed ?? "") as "",
               purposeOfIssue: item.purposeOfIssue ?? "",
               equipmentName: item.equipmentName,
               equipmentModel: item.equipmentModel ?? "",
               band: item.band ?? "",
               equipmentType: item.equipmentType ?? "",
+              equipmentSerial: item.equipmentSerial ?? "",
               origin: item.origin ?? "",
               quantity: item.quantity,
               serviceableQty: item.serviceableQty,

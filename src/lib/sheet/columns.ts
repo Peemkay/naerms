@@ -58,9 +58,13 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   { key: "letterOfRequest", header: "Letter of Request", kind: "text", width: 140 },
   { key: "authority", header: "Authority", kind: "text", width: 140 },
   { key: "dateIssued", header: "Date Issued", kind: "date", width: 110 },
-  { key: "formationName", header: "Fmn/Unit Issued", kind: "text", width: 150, readOnly: true },
+  // Editable free text, not the owning formation's name: on the real sheets
+  // a register headed "51 SB" carries lines reading "NISIGS ESSMGB" — the
+  // sub-unit or detachment the equipment went to, which is often not a
+  // formation in the tree at all.
+  { key: "fmnUnitIssued", header: "Fmn/Unit Issuied", kind: "text", width: 150 },
   { key: "howDeployed", header: "How Depl", kind: "text", width: 120 },
-  { key: "purposeOfIssue", header: "Purpose of Issue", kind: "text", width: 150 },
+  { key: "purposeOfIssue", header: "Purpose of Issuied", kind: "text", width: 150 },
   { key: "equipmentName", header: "Eqpt Name", kind: "text", width: 220 },
   { key: "equipmentModel", header: "Eqpt Model", kind: "text", width: 150 },
   { key: "band", header: "Band", kind: "text", width: 90 },

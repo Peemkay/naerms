@@ -35,13 +35,17 @@ import { CONDITION_LABEL } from "@/lib/status"
 import { createReturnAction, updateReturnAction, saveDraftAction } from "@/lib/actions/returns"
 
 const EMPTY_ITEM: ReturnItemDraft = {
+  letterOfRequest: "",
+  authority: "",
   dateIssued: "",
+  fmnUnitIssued: "",
   howDeployed: "",
   purposeOfIssue: "",
   equipmentName: "",
   equipmentModel: "",
   band: "",
   equipmentType: "",
+  equipmentSerial: "",
   origin: "",
   quantity: 1,
   serviceableQty: 1,
@@ -357,11 +361,38 @@ export function ReturnForm(props: Props) {
                   </div>
 
                   <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Letter of Request</label>
+                    <Input
+                      value={item.letterOfRequest}
+                      onChange={(e) => updateItem(index, { letterOfRequest: e.target.value })}
+                      placeholder="NIL"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Authority</label>
+                    <Input
+                      value={item.authority}
+                      onChange={(e) => updateItem(index, { authority: e.target.value })}
+                      placeholder="e.g. HQ NAS/SOC"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
                     <label className="text-sm font-medium">Date Issued</label>
                     <Input
                       type="date"
                       value={item.dateIssued}
                       onChange={(e) => updateItem(index, { dateIssued: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Fmn/Unit Issued</label>
+                    <Input
+                      value={item.fmnUnitIssued}
+                      onChange={(e) => updateItem(index, { fmnUnitIssued: e.target.value })}
+                      placeholder="e.g. NISIGS ESSMGB"
                     />
                   </div>
 
@@ -429,6 +460,15 @@ export function ReturnForm(props: Props) {
                       value={item.equipmentType}
                       onChange={(e) => updateItem(index, { equipmentType: e.target.value })}
                       placeholder="Select or type a new type"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label className="text-sm font-medium">Eqpt Serial</label>
+                    <Input
+                      value={item.equipmentSerial}
+                      onChange={(e) => updateItem(index, { equipmentSerial: e.target.value })}
+                      placeholder="e.g. ESSMGB-01"
                     />
                   </div>
 

@@ -11,13 +11,17 @@ import type { ReturnItemDraft } from "@/lib/validation/return"
  */
 export const IO_COLUMNS = [
   { header: "SER", key: "lineNo" },
+  { header: "Letter of Request", key: "letterOfRequest" },
+  { header: "Authority", key: "authority" },
   { header: "Date Issued", key: "dateIssued" },
-  { header: "How Deployed", key: "howDeployed" },
-  { header: "Purpose", key: "purposeOfIssue" },
-  { header: "Equipment", key: "equipmentName" },
-  { header: "Model", key: "equipmentModel" },
+  { header: "Fmn/Unit Issuied", key: "fmnUnitIssued" },
+  { header: "How Depl", key: "howDeployed" },
+  { header: "Purpose of Issuied", key: "purposeOfIssue" },
+  { header: "Eqpt Name", key: "equipmentName" },
+  { header: "Eqpt Model", key: "equipmentModel" },
   { header: "Band", key: "band" },
-  { header: "Type", key: "equipmentType" },
+  { header: "Eqpt Type", key: "equipmentType" },
+  { header: "Eqpt Serial", key: "equipmentSerial" },
   { header: "Origin", key: "origin" },
   { header: "Qty", key: "quantity" },
   { header: "Serviceable", key: "serviceableQty" },
@@ -107,7 +111,10 @@ export function rowToItem(row: Record<string, unknown>): ReturnItemDraft {
     serviceableQty + unserviceableQty + underRepairQty + awaitingEvacuationQty
 
   return {
+    letterOfRequest: String(row.letterOfRequest ?? "").trim(),
+    authority: String(row.authority ?? "").trim(),
     dateIssued: toIsoDateCell(row.dateIssued),
+    fmnUnitIssued: String(row.fmnUnitIssued ?? "").trim(),
     // Free text in the sheet, a fixed enum in the form. An unrecognised
     // value is dropped to "" so the select renders empty rather than
     // holding a value the schema will later reject.
@@ -117,6 +124,7 @@ export function rowToItem(row: Record<string, unknown>): ReturnItemDraft {
     equipmentModel: String(row.equipmentModel ?? "").trim(),
     band: String(row.band ?? "").trim(),
     equipmentType: String(row.equipmentType ?? "").trim(),
+    equipmentSerial: String(row.equipmentSerial ?? "").trim(),
     origin: String(row.origin ?? "").trim(),
     quantity,
     // A sheet with no condition columns filled in (common: the paper form

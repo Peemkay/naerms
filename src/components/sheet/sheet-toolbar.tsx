@@ -89,22 +89,21 @@ export function SheetToolbar({
       const workbook = new ExcelJS.Workbook()
       const sheet = workbook.addWorksheet("Returns")
 
-      // Title block above the table, matching the paper register: the
-      // formation's name is part of the document, not just a filename.
-      sheet.addRow(["EQUIPMENT RETURNS REGISTER"])
+      // Row 1 is the formation name, row 2 the column headings, data from
+      // row 3 — the exact layout of the units' own workbooks, where each
+      // block is titled "51 SB" in column A directly above its header row.
+      // An extra banner line here would misalign every sheet against the
+      // ones already in circulation.
       sheet.addRow([formationName])
-      sheet.addRow([])
-      sheet.getRow(1).font = { bold: true, size: 14 }
-      sheet.getRow(2).font = { bold: true, size: 12 }
+      sheet.getRow(1).font = { bold: true, size: 12 }
 
       sheet.addRow(columns.map((c) => c.header))
-      const headerRow = sheet.getRow(4)
-      headerRow.font = { bold: true }
+      sheet.getRow(2).font = { bold: true }
 
       for (const row of sheetRowsAsGrid()) sheet.addRow(row)
 
       sheet.columns = columns.map((c) => ({ width: Math.max(12, Math.round(c.width / 7)) }))
-      sheet.views = [{ state: "frozen", ySplit: 4 }]
+      sheet.views = [{ state: "frozen", ySplit: 2 }]
 
       const buffer = await workbook.xlsx.writeBuffer()
       download(

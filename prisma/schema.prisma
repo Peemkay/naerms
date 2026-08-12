@@ -173,6 +173,13 @@ model ReturnItem {
   letterOfRequest String?
   authority       String?
 
+  // "Fmn/Unit Issuied" on the paper register. NOT the owning formation's
+  // name: a sheet headed "51 SB" carries lines reading "NISIGS ESSMGB",
+  // i.e. the sub-unit or detachment the equipment actually went to. Free
+  // text, because it routinely names bodies that aren't formations in the
+  // tree at all.
+  fmnUnitIssued   String?
+
   status ReturnStatus @default(PENDING) // workflow state
 
   // Physical/serviceability state, as a breakdown across however many units

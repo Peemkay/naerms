@@ -58,7 +58,14 @@ const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
 // suggests the common values), so no enum validation on those either.
 export const returnItemSchema = z
   .object({
+    // Letter of Request / Authority, per the paper register's own columns.
+    letterOfRequest: z.string().trim().optional().or(z.literal("")),
+    authority: z.string().trim().optional().or(z.literal("")),
+
     dateIssued: z.string().optional().or(z.literal("")), // yyyy-mm-dd from <input type="date">
+    // The sub-unit or detachment the equipment went to, which is not the
+    // submitting formation and is often not in the tree at all.
+    fmnUnitIssued: z.string().trim().optional().or(z.literal("")),
     howDeployed: optionalEnum(DEPLOYMENT_MODES),
     purposeOfIssue: z.string().trim().optional().or(z.literal("")),
 
@@ -66,6 +73,7 @@ export const returnItemSchema = z
     equipmentModel: z.string().trim().optional().or(z.literal("")),
     band: z.string().trim().optional().or(z.literal("")),
     equipmentType: z.string().trim().optional().or(z.literal("")),
+    equipmentSerial: z.string().trim().optional().or(z.literal("")),
     origin: z.string().trim().optional().or(z.literal("")),
 
     quantity: z.number().int().min(1, "At least 1"),
