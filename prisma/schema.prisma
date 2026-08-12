@@ -115,6 +115,19 @@ model Return {
   formationId      String                           // Fmn/Unit submitting
   formation        Formation     @relation(fields: [formationId], references: [id])
 
+  // A draft is a work-in-progress return the clerk saved to come back to
+  // (power cut, end of shift, waiting on a figure). It is NOT in the
+  // register: it's excluded from the registry, dashboard counts, and every
+  // notification fan-out until it is submitted, at which point this flips
+  // false permanently. Drafts are only ever visible to the formation that
+  // owns them, never to superiors — see src/lib/returns.ts.
+  //
+  // Deliberately a flag on Return rather than a separate model: a draft has
+  // exactly the same shape as a return (same items, same fields), and a
+  // parallel DraftReturn/DraftItem pair would duplicate every field and
+  // force a conversion step on submit.
+  isDraft          Boolean       @default(false)
+
   items            ReturnItem[]
   notifications    Notification[]
 
@@ -122,6 +135,8 @@ model Return {
   updatedAt        DateTime      @updatedAt
 
   @@index([formationId])
+  // Drafts are always looked up as "my drafts", never globally.
+  @@index([formationId, isDraft])
 }
 
 // One physical equipment line within a Return. What used to be the whole

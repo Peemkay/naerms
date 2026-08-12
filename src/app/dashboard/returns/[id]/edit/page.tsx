@@ -16,6 +16,9 @@ export default async function EditReturnPage({ params }: { params: Promise<{ id:
   })
   if (!ret) notFound()
 
+  // A draft isn't a filed return: it's edited through the New Return form,
+  // which knows how to save it back as a draft rather than submitting it.
+  if (ret.isDraft) redirect(`/dashboard/new-return?draft=${ret.id}`)
   if (ret.formationId !== session.user.id) redirect("/dashboard")
   if (ret.items.some((item) => item.status !== "PENDING")) redirect(`/dashboard/returns/${ret.id}`)
 

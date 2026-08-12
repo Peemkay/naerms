@@ -7,7 +7,12 @@ import { prisma } from "@/lib/prisma"
 import { requireSession } from "@/lib/session"
 import { getVisibleFormationIds } from "@/lib/scope"
 import { getDefaultOriginForFormation, getFormationAncestors } from "@/lib/formation"
-import { returnFormSchema, statusChangeSchema, type ReturnItemInput } from "@/lib/validation/return"
+import {
+  returnDraftSchema,
+  returnFormSchema,
+  statusChangeSchema,
+  type ReturnItemInput,
+} from "@/lib/validation/return"
 
 type ActionResult =
   | { success: true; id: string }
@@ -40,7 +45,13 @@ function toItemData(item: ReturnItemInput, lineNo: number) {
  * leaf UNIT's request notifies no one, a Brigade's fans out to everything
  * below it.
  */
-export async function createReturnAction(values: unknown): Promise<ActionResult> {
+export async function createReturnAction(
+  values: unknown,
+  // Set when the clerk is submitting a draft they had saved. The draft is
+  // promoted in place (same row, isDraft flipped false) rather than copied,
+  // so the id stays stable and no orphan draft is left behind.
+  fromDraftId?: string
+): Promise<ActionResult> {
   const session = await requireSession()
   const parsed = returnFormSchema.safeParse(values)
   if (!parsed.success) {
@@ -50,19 +61,41 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
   const formationId = session.user.id
   const defaultOrigin = await getDefaultOriginForFormation(formationId)
 
-  const created = await prisma.return.create({
-    data: {
-      requestRef: parsed.data.requestRef,
-      auth: parsed.data.auth || null,
-      formationId,
-      items: {
-        create: parsed.data.items.map((item, index) => ({
-          ...toItemData(item, index + 1),
-          origin: item.origin || defaultOrigin || null,
-        })),
-      },
-    },
-  })
+  const itemData = parsed.data.items.map((item, index) => ({
+    ...toItemData(item, index + 1),
+    origin: item.origin || defaultOrigin || null,
+  }))
+
+  if (fromDraftId) {
+    const draft = await prisma.return.findUnique({ where: { id: fromDraftId } })
+    if (!draft || draft.formationId !== formationId || !draft.isDraft) {
+      return { error: "That draft no longer exists." }
+    }
+  }
+
+  const created = fromDraftId
+    ? await prisma.$transaction(async (tx) => {
+        // Items are replaced wholesale: the form is the source of truth, and
+        // rows may have been added, removed, or reordered since the save.
+        await tx.returnItem.deleteMany({ where: { returnId: fromDraftId } })
+        return tx.return.update({
+          where: { id: fromDraftId },
+          data: {
+            requestRef: parsed.data.requestRef,
+            auth: parsed.data.auth || null,
+            isDraft: false,
+            items: { create: itemData },
+          },
+        })
+      })
+    : await prisma.return.create({
+        data: {
+          requestRef: parsed.data.requestRef,
+          auth: parsed.data.auth || null,
+          formationId,
+          items: { create: itemData },
+        },
+      })
 
   // Notify subordinates — descendants minus the submitter itself.
   const subtree = await getVisibleFormationIds(formationId)
@@ -104,7 +137,114 @@ export async function createReturnAction(values: unknown): Promise<ActionResult>
   }
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/new-return")
   return { success: true, id: created.id }
+}
+
+/**
+ * Saves (or updates) a draft return: a work-in-progress the clerk can come
+ * back to after a power cut, a network drop, or the end of a shift.
+ *
+ * Deliberately permissive — it accepts incomplete items and never notifies
+ * anyone, because a draft is not in the register. Nothing here fans out;
+ * that only happens on submit, in createReturnAction.
+ *
+ * Passing `draftId` updates that draft in place, so repeated saves from one
+ * sitting don't pile up a row each. Items are replaced wholesale since the
+ * form is the source of truth for what the draft currently contains.
+ */
+export async function saveDraftAction(values: unknown, draftId?: string): Promise<ActionResult> {
+  const session = await requireSession()
+  const parsed = returnDraftSchema.safeParse(values)
+  if (!parsed.success) {
+    return { error: "Give this draft a Request Ref before saving.", fieldErrors: z.flattenError(parsed.error).fieldErrors }
+  }
+
+  const formationId = session.user.id
+  const defaultOrigin = await getDefaultOriginForFormation(formationId)
+
+  // A draft item's quantity can legitimately be 0/blank while it's being
+  // filled in, but the column is NOT NULL — so normalise here rather than
+  // relaxing the schema for submitted returns too.
+  const itemData = parsed.data.items.map((item, index) => ({
+    lineNo: index + 1,
+    dateIssued: item.dateIssued ? new Date(item.dateIssued) : null,
+    howDeployed: item.howDeployed || null,
+    purposeOfIssue: item.purposeOfIssue || null,
+    equipmentName: item.equipmentName || "",
+    equipmentModel: item.equipmentModel || null,
+    band: item.band || null,
+    equipmentType: item.equipmentType || null,
+    origin: item.origin || defaultOrigin || null,
+    quantity: item.quantity ?? 0,
+    serviceableQty: item.serviceableQty ?? 0,
+    unserviceableQty: item.unserviceableQty ?? 0,
+    underRepairQty: item.underRepairQty ?? 0,
+    awaitingEvacuationQty: item.awaitingEvacuationQty ?? 0,
+    remarks: item.remarks || null,
+  }))
+
+  if (draftId) {
+    const existing = await prisma.return.findUnique({ where: { id: draftId } })
+    if (!existing || existing.formationId !== formationId) {
+      return { error: "That draft no longer exists." }
+    }
+    // Guard against a stale tab saving over a return that has since been
+    // submitted — that would silently pull a filed return back out of the
+    // register.
+    if (!existing.isDraft) {
+      return { error: "That return has already been submitted and can no longer be saved as a draft." }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.returnItem.deleteMany({ where: { returnId: draftId } })
+      return tx.return.update({
+        where: { id: draftId },
+        data: {
+          requestRef: parsed.data.requestRef,
+          auth: parsed.data.auth || null,
+          items: { create: itemData },
+        },
+      })
+    })
+
+    revalidatePath("/dashboard/new-return")
+    return { success: true, id: updated.id }
+  }
+
+  const created = await prisma.return.create({
+    data: {
+      requestRef: parsed.data.requestRef,
+      auth: parsed.data.auth || null,
+      formationId,
+      isDraft: true,
+      items: { create: itemData },
+    },
+  })
+
+  revalidatePath("/dashboard/new-return")
+  return { success: true, id: created.id }
+}
+
+/** Discards a draft. Own formation only, and only while it is still a draft. */
+export async function deleteDraftAction(draftId: string): Promise<ActionResult> {
+  const session = await requireSession()
+
+  const existing = await prisma.return.findUnique({ where: { id: draftId } })
+  if (!existing) return { error: "That draft no longer exists." }
+  if (existing.formationId !== session.user.id) {
+    return { error: "You can only discard your own drafts." }
+  }
+  // Never let this path touch a filed return: deletion of those is gated
+  // behind DELETE_RETURNS and its own audit trail (see deleteReturnAction).
+  if (!existing.isDraft) {
+    return { error: "That return has been submitted and cannot be discarded here." }
+  }
+
+  await prisma.return.delete({ where: { id: draftId } })
+
+  revalidatePath("/dashboard/new-return")
+  return { success: true, id: draftId }
 }
 
 /** Edits a return — only while every item is still PENDING, own formation only. */

@@ -102,6 +102,47 @@ export const returnFormSchema = z.object({
 
 export type ReturnFormInput = z.infer<typeof returnFormSchema>
 
+// ---------------------------------------------------------------------
+// DRAFTS
+// ---------------------------------------------------------------------
+
+// A draft is explicitly allowed to be incomplete — that is the entire point
+// of saving one. So the item rules drop to "shape must be right", with none
+// of the completeness checks the submit path enforces: no required
+// equipment name, no min-1 quantity, and crucially no cross-field refine
+// that the condition breakdown sums to the quantity (a half-entered item
+// almost never sums yet). Those are re-applied in full by
+// `returnFormSchema` when the draft is finally submitted, so an incomplete
+// draft can be stored but never filed into the register.
+export const returnItemDraftSchema = z.object({
+  dateIssued: z.string().optional().or(z.literal("")),
+  howDeployed: optionalEnum(DEPLOYMENT_MODES),
+  purposeOfIssue: z.string().trim().optional().or(z.literal("")),
+
+  equipmentName: z.string().trim().optional().or(z.literal("")),
+  equipmentModel: z.string().trim().optional().or(z.literal("")),
+  band: z.string().trim().optional().or(z.literal("")),
+  equipmentType: z.string().trim().optional().or(z.literal("")),
+  origin: z.string().trim().optional().or(z.literal("")),
+
+  quantity: z.number().int().min(0).default(0),
+  serviceableQty: z.number().int().min(0).default(0),
+  unserviceableQty: z.number().int().min(0).default(0),
+  underRepairQty: z.number().int().min(0).default(0),
+  awaitingEvacuationQty: z.number().int().min(0).default(0),
+  remarks: z.string().trim().optional().or(z.literal("")),
+})
+
+// Request Ref is the one field a draft still needs: it's how the clerk (and
+// the resume list) tells one draft from another. Everything else can wait.
+export const returnDraftSchema = z.object({
+  requestRef: z.string().trim().min(1, "Request ref is required to save a draft"),
+  auth: z.string().trim().optional().or(z.literal("")),
+  items: z.array(returnItemDraftSchema),
+})
+
+export type ReturnDraftInput = z.infer<typeof returnDraftSchema>
+
 export const statusChangeSchema = z.object({
   returnItemId: z.string().min(1),
   toStatus: z.enum(RETURN_STATUSES),
