@@ -249,6 +249,11 @@ export function ReturnForm(props: Props) {
           <option key={b} value={b} />
         ))}
       </datalist>
+      <datalist id="deployment-options">
+        {DEPLOYMENT_MODES.map((mode) => (
+          <option key={mode} value={mode} />
+        ))}
+      </datalist>
       <datalist id="equipment-type-options">
         {EQUIPMENT_TYPES.map((t) => (
           <option key={t} value={t} />
@@ -397,22 +402,13 @@ export function ReturnForm(props: Props) {
                   </div>
 
                   <div className="grid gap-1.5">
-                    <label className="text-sm font-medium">How Deployed</label>
-                    <Select
-                      value={item.howDeployed || undefined}
-                      onValueChange={(v) => updateItem(index, { howDeployed: v as ReturnItemDraft["howDeployed"] })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select deployment mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DEPLOYMENT_MODES.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {mode}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-sm font-medium">How Depl</label>
+                    <Input
+                      list="deployment-options"
+                      value={item.howDeployed}
+                      onChange={(e) => updateItem(index, { howDeployed: e.target.value })}
+                      placeholder="Mode or location, e.g. Bissau"
+                    />
                   </div>
 
                   <div className="grid gap-1.5 sm:col-span-2">
