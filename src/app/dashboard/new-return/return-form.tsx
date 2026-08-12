@@ -6,6 +6,9 @@ import { z } from "zod"
 import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
 
+import { useLocalDraft } from "@/lib/use-local-draft"
+import { ReturnIoButtons } from "@/components/return-io-buttons"
+
 import { Form } from "@/components/ui/form"
 import { Field, FieldLabel, FieldError } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -29,7 +32,7 @@ import {
   type ReturnItemDraft,
 } from "@/lib/validation/return"
 import { CONDITION_LABEL } from "@/lib/status"
-import { createReturnAction, updateReturnAction } from "@/lib/actions/returns"
+import { createReturnAction, updateReturnAction, saveDraftAction } from "@/lib/actions/returns"
 
 const EMPTY_ITEM: ReturnItemDraft = {
   dateIssued: "",
@@ -49,7 +52,17 @@ const EMPTY_ITEM: ReturnItemDraft = {
 }
 
 type Props =
-  | { mode: "create"; defaultOrigin: string | null; defaultRequestRef?: string }
+  | {
+      mode: "create"
+      defaultOrigin: string | null
+      defaultRequestRef?: string
+      /** Scopes autosave storage so two accounts on one machine stay separate. */
+      formationId: string
+      /** Set when resuming a saved draft: subsequent saves update it in place. */
+      draftId?: string
+      draftValues?: Omit<ReturnFormInput, "items">
+      draftItems?: ReturnItemDraft[]
+    }
   | { mode: "edit"; returnId: string; initialValues: Omit<ReturnFormInput, "items">; initialItems: ReturnItemDraft[] }
 
 function breakdownSum(item: ReturnItemDraft) {
@@ -67,13 +80,51 @@ export function ReturnForm(props: Props) {
   const [itemErrors, setItemErrors] = useState<Record<number, Record<string, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [items, setItems] = useState<ReturnItemDraft[]>(
-    props.mode === "edit" && props.initialItems.length > 0
-      ? props.initialItems
-      : [{ ...EMPTY_ITEM, origin: props.mode === "create" ? props.defaultOrigin ?? "" : "" }]
-  )
+  const [savingDraft, startDraftTransition] = useTransition()
 
-  const initial = props.mode === "edit" ? props.initialValues : undefined
+  const initial =
+    props.mode === "edit"
+      ? props.initialValues
+      : props.draftValues
+
+  // Header fields are controlled (not defaultValue) so autosave can observe
+  // them — an uncontrolled input's value never reaches React state, which
+  // would leave Request Ref and Auth out of every recovered draft.
+  const [requestRef, setRequestRef] = useState(
+    initial?.requestRef ?? (props.mode === "create" ? props.defaultRequestRef ?? "" : "")
+  )
+  const [auth, setAuth] = useState(initial?.auth ?? "")
+
+  const [items, setItems] = useState<ReturnItemDraft[]>(() => {
+    if (props.mode === "edit" && props.initialItems.length > 0) return props.initialItems
+    if (props.mode === "create" && props.draftItems && props.draftItems.length > 0) {
+      return props.draftItems
+    }
+    return [{ ...EMPTY_ITEM, origin: props.mode === "create" ? props.defaultOrigin ?? "" : "" }]
+  })
+
+  // Server draft this form is bound to. Starts from the resumed draft (if
+  // any) and is set on first save, so repeated saves update one row.
+  const [draftId, setDraftId] = useState<string | undefined>(
+    props.mode === "create" ? props.draftId : undefined
+  )
+  const [submitted, setSubmitted] = useState(false)
+
+  // Local autosave: the only layer that survives a power cut or a dead
+  // network, since both of those make a server save impossible. Only on the
+  // create path — editing a filed return is a different, deliberate act.
+  const { recovered, savedAt, clear: clearLocalDraft } = useLocalDraft({
+    formKey: props.mode === "create" ? `new-return:${props.draftId ?? "new"}` : "noop",
+    formationId: props.mode === "create" ? props.formationId : "noop",
+    values: { requestRef, auth, items },
+    enabled: props.mode === "create" && !submitted,
+  })
+
+  // Offered, never auto-applied: silently overwriting what's on screen with
+  // older recovered text would be worse than the data loss it prevents.
+  const [restorable, setRestorable] = useState(
+    props.mode === "create" && recovered !== null && recovered.savedAt > 0
+  )
 
   function updateItem(index: number, patch: Partial<ReturnItemDraft>) {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
@@ -102,12 +153,46 @@ export function ReturnForm(props: Props) {
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 
+  /**
+   * Saves a draft without filing it into the register. Deliberately skips
+   * the full submit validation: a half-finished item is exactly what a
+   * draft is for. Only Request Ref is required, since that's how the clerk
+   * identifies the draft when resuming it.
+   */
+  function saveDraft({ thenExit }: { thenExit: boolean }) {
+    if (props.mode !== "create") return
+    if (!requestRef.trim()) {
+      setFormError("Enter a Request Ref before saving. It's how you'll find this draft again.")
+      return
+    }
+    setFormError(null)
+    startDraftTransition(async () => {
+      const res = await saveDraftAction({ requestRef, auth, items }, draftId)
+      if ("error" in res) {
+        // The local autosave still holds this work, so nothing is lost —
+        // say so, because "save failed" on a returns register otherwise
+        // reads as "your work is gone".
+        setFormError(`${res.error} Your work is still saved on this device.`)
+        return
+      }
+      setDraftId(res.id)
+      toast.success(thenExit ? "Draft saved." : "Draft saved. Keep going.")
+      if (thenExit) {
+        clearLocalDraft()
+        router.push("/dashboard")
+        router.refresh()
+      } else {
+        router.refresh()
+      }
+    })
+  }
+
   return (
     <Form
       errors={errors}
       onFormSubmit={(values) => {
         setFormError(null)
-        const result = returnFormSchema.safeParse({ ...values, items })
+        const result = returnFormSchema.safeParse({ ...values, requestRef, auth, items })
         if (!result.success) {
           const flat = z.flattenError(result.error)
           setErrors(flat.fieldErrors as Record<string, string | string[]>)
@@ -130,7 +215,10 @@ export function ReturnForm(props: Props) {
         startTransition(async () => {
           const res =
             props.mode === "create"
-              ? await createReturnAction(result.data)
+              ? // Promotes the saved draft in place when there is one, so
+                // submitting a resumed draft doesn't leave the draft behind
+                // as a duplicate of the return just filed.
+                await createReturnAction(result.data, draftId)
               : await updateReturnAction(props.returnId, result.data)
 
           if ("error" in res) {
@@ -139,6 +227,10 @@ export function ReturnForm(props: Props) {
             return
           }
 
+          // Filed successfully: stop autosaving and drop the local copy, or
+          // the next visit would offer to restore an already-submitted return.
+          setSubmitted(true)
+          clearLocalDraft()
           toast.success(props.mode === "create" ? "Return submitted." : "Return updated.")
           router.push(props.mode === "create" ? "/dashboard" : `/dashboard/returns/${res.id}`)
           router.refresh()
@@ -159,30 +251,85 @@ export function ReturnForm(props: Props) {
         ))}
       </datalist>
 
+      {/* Unsent work found on this device — from a power cut, a crash, or a
+          tab closed mid-entry. Offered rather than applied, so it can never
+          overwrite what the clerk is looking at. */}
+      {restorable && recovered && (
+        <div className="grid gap-2 rounded-lg border border-brand-gold bg-brand-gold/10 p-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <p className="text-sm">
+            <span className="font-medium">Unsaved work found on this device.</span>{" "}
+            <span className="text-muted-foreground">
+              Last edited {new Date(recovered.savedAt).toLocaleString("en-GB")}.
+            </span>
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setRequestRef(recovered.values.requestRef ?? "")
+                setAuth(recovered.values.auth ?? "")
+                if (recovered.values.items?.length > 0) setItems(recovered.values.items)
+                setRestorable(false)
+                toast.success("Restored.")
+              }}
+            >
+              Restore
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                clearLocalDraft()
+                setRestorable(false)
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field name="requestRef">
           <FieldLabel>Request Ref</FieldLabel>
           <Input
             name="requestRef"
-            defaultValue={initial?.requestRef ?? (props.mode === "create" ? props.defaultRequestRef : undefined)}
+            value={requestRef}
+            onChange={(e) => setRequestRef(e.target.value)}
             required
           />
           <FieldError />
         </Field>
         <Field name="auth">
           <FieldLabel>Auth</FieldLabel>
-          <Input name="auth" defaultValue={initial?.auth} />
+          <Input name="auth" value={auth} onChange={(e) => setAuth(e.target.value)} />
           <FieldError />
         </Field>
       </div>
 
       <div className="border-t border-border pt-4">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-medium">Equipment Items ({items.length})</p>
-          <Button type="button" variant="outline" size="sm" onClick={addItem}>
-            <Plus className="size-3.5" />
-            Add Equipment
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ReturnIoButtons
+              items={items}
+              requestRef={requestRef}
+              disabled={pending || savingDraft}
+              onImport={(imported, mode) =>
+                setItems((prev) =>
+                  mode === "append"
+                    ? [...prev.filter((item) => item.equipmentName.trim() !== ""), ...imported]
+                    : imported
+                )
+              }
+            />
+            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Plus className="size-3.5" />
+              Add Equipment
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -378,10 +525,42 @@ export function ReturnForm(props: Props) {
         </p>
       )}
 
-      <div className="flex justify-end gap-2 border-t border-border pt-4">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : props.mode === "create" ? "Submit Return" : "Save Changes"}
-        </Button>
+      <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Autosave status. Reassurance that leaving now is safe is the
+            whole point of the feature, so it's stated plainly rather than
+            hidden behind an icon. */}
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {props.mode === "create" &&
+            (savedAt
+              ? `Autosaved on this device at ${new Date(savedAt).toLocaleTimeString("en-GB")}.`
+              : "Your work is autosaved on this device as you type.")}
+        </p>
+
+        <div className="flex flex-wrap justify-end gap-2">
+          {props.mode === "create" && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending || savingDraft}
+                onClick={() => saveDraft({ thenExit: true })}
+              >
+                {savingDraft ? "Saving…" : "Save"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending || savingDraft}
+                onClick={() => saveDraft({ thenExit: false })}
+              >
+                {savingDraft ? "Saving…" : "Save and Continue"}
+              </Button>
+            </>
+          )}
+          <Button type="submit" disabled={pending || savingDraft}>
+            {pending ? "Submitting…" : props.mode === "create" ? "Submit Return" : "Save Changes"}
+          </Button>
+        </div>
       </div>
     </Form>
   )

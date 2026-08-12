@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth"
 import { getRecentNotifications, getUnreadNotificationCount } from "@/lib/notifications"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SignOutButton } from "@/components/sign-out-button"
+import { IdleLogout } from "@/components/idle-logout"
 import { NotificationBell } from "@/components/notification-bell"
 import { Button } from "@/components/ui/button"
 import { PRIVILEGE_LABELS } from "@/lib/privileges"
@@ -26,6 +27,9 @@ export async function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Only armed for a signed-in session — there is nothing to time out
+          of on the login page. */}
+      {user && <IdleLogout />}
       {/* The masthead is fixed brand navy in both themes — a letterhead, not
           a themed surface. Only the content area below adapts to light/dark. */}
       <header className="sticky top-0 z-40 border-b-2 border-brand-gold bg-brand-navy text-white shadow-sm">

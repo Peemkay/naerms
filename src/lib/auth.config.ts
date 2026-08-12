@@ -9,12 +9,27 @@ import type { NextAuthConfig } from "next-auth"
 // There's no role tier to route on anymore — every formation lands on the
 // same dashboard, and individual actions gate themselves on privileges. So
 // this callback only has one job: logged in or not.
+// Inactivity timeout. A restricted system on shared office machines should
+// not stay logged in on an unattended screen.
+//
+// This is the *authoritative* half: `maxAge` expires the JWT itself, so a
+// session idle past this is rejected by the server no matter what the
+// browser does. `updateAge: 0` re-issues the cookie on every request that
+// touches the session, which is what makes it a rolling idle window rather
+// than a hard 30-minute cap on being logged in at all — active work keeps
+// pushing the expiry out. The client-side timer in <IdleLogout> is purely
+// so the user sees a clean warning and redirect instead of discovering it
+// via a failed action.
+export const IDLE_TIMEOUT_SECONDS = 30 * 60
+
 export const authConfig = {
   pages: {
     signIn: "/login",
   },
   session: {
     strategy: "jwt",
+    maxAge: IDLE_TIMEOUT_SECONDS,
+    updateAge: 0,
   },
   providers: [],
   callbacks: {

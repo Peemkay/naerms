@@ -197,7 +197,10 @@ export async function deleteFormationAction(formationId: string): Promise<Action
 
   const [childCount, returnCount, statusChangeCount, requestCount] = await Promise.all([
     prisma.formation.count({ where: { parentId: formationId } }),
-    prisma.return.count({ where: { formationId } }),
+    // Filed returns only. An unsubmitted draft is scratch work, not a
+    // register entry, so it shouldn't block deleting the formation — the
+    // cascade below clears it along with everything else.
+    prisma.return.count({ where: { formationId, isDraft: false } }),
     prisma.statusHistory.count({ where: { changedById: formationId } }),
     prisma.returnRequest.count({
       where: { OR: [{ fromFormationId: formationId }, { toFormationId: formationId }] },
@@ -227,6 +230,12 @@ export async function deleteFormationAction(formationId: string): Promise<Action
 
   await prisma.$transaction([
     prisma.notification.deleteMany({ where: { formationId } }),
+    // Drafts don't block deletion (they're not register entries), but
+    // Return has no cascade from Formation, so they must go explicitly or
+    // the delete below fails on a foreign-key constraint. Only drafts are
+    // ever removed here: the guard above already proved there are no filed
+    // returns left.
+    prisma.return.deleteMany({ where: { formationId, isDraft: true } }),
     prisma.formation.delete({ where: { id: formationId } }),
   ])
 
