@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Table2 } from "lucide-react"
 import type { EquipmentCondition, ReturnStatus } from "@prisma/client"
 
 import type { FormationOverviewData } from "@/lib/formation-overview"
@@ -17,6 +17,7 @@ import { ReturnsTable } from "@/components/returns-table"
 import { RequestReturnButton } from "@/components/request-return-button"
 import { toReturnRow } from "@/lib/returns"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 const CONDITIONS = ["SERVICEABLE", "UNSERVICEABLE", "UNDER_REPAIR", "AWAITING_EVACUATION"] as const
 
@@ -95,7 +96,22 @@ export function FormationOverview({
             </p>
           )}
         </div>
-        {canRequestReturn && <RequestReturnButton toFormationId={formation.id} toFormationName={formation.name} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The whole register as one spreadsheet. For the viewer's own
+              formation this is editable; for a subordinate it opens
+              read-only with commenting, which the page enforces itself. */}
+          <Button
+            variant="outline"
+            size="sm"
+            render={
+              <Link href={`/dashboard/sheet?formation=${formation.id}`}>
+                <Table2 className="size-3.5" />
+                View Returns Sheet
+              </Link>
+            }
+          />
+          {canRequestReturn && <RequestReturnButton toFormationId={formation.id} toFormationName={formation.name} />}
+        </div>
       </div>
 
       {formation.type === "SIGNAL_BRIGADE" && (organicRegiments.length > 0 || attachedSignals.length > 0) && (

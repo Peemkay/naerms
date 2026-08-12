@@ -23,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <NavTabs
           items={[
             { href: "/dashboard", label: "Dashboard" },
+            { href: "/dashboard/sheet", label: "Returns Sheet" },
             { href: "/dashboard/new-return", label: "New Return" },
             // Every formation can request returns from formations under it,
             // same as the inline button on a formation's own overview page —
