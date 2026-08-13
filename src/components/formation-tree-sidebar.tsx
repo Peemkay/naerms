@@ -75,7 +75,12 @@ function TreeNode({
   // Only the drag handle is draggable, not the whole row: the row is a
   // link, and making a link draggable turns every slightly-off click into a
   // drag instead of a navigation.
-  const canDrag = !!drag && node.id !== rootId
+  //
+  // The topmost visible formation is draggable too. It is only "the root" of
+  // this viewer's scope, not of the world — NAS itself is expected to end up
+  // under an Army Headquarters — and it can always be dropped on the
+  // top-level zone even when no other target is legal.
+  const canDrag = !!drag
   const isDragging = drag?.draggingId === node.id
   // A node can't be dropped onto itself or anything beneath it — that would
   // detach the branch from the chain of command. The server refuses these
@@ -93,6 +98,7 @@ function TreeNode({
         <div
           onDragOver={(e) => {
             e.preventDefault()
+            e.dataTransfer.dropEffect = "move"
             setOverBefore(true)
           }}
           onDragLeave={() => setOverBefore(false)}
@@ -111,7 +117,10 @@ function TreeNode({
       <div
         onDragOver={(e) => {
           if (!canDrop) return
+          // preventDefault is what marks this a valid drop target at all;
+          // without dropEffect the cursor still reads "not allowed".
           e.preventDefault()
+          e.dataTransfer.dropEffect = "move"
           setOver(true)
         }}
         onDragLeave={() => setOver(false)}
@@ -134,7 +143,15 @@ function TreeNode({
         {canDrag && (
           <span
             draggable
-            onDragStart={() => drag?.onDragStart(node.id)}
+            onDragStart={(e) => {
+              // A drag with no data payload is cancelled outright by Chrome
+              // and Safari, so the whole gesture silently did nothing. The
+              // id is what the drop handlers read back, and setting
+              // effectAllowed is what gives the cursor its "move" affordance.
+              e.dataTransfer.setData("text/plain", node.id)
+              e.dataTransfer.effectAllowed = "move"
+              drag?.onDragStart(node.id)
+            }}
             onDragEnd={() => drag?.onDragEnd()}
             aria-label={`Drag ${node.name} to a new parent formation`}
             title="Drag onto another formation to move it there"
@@ -227,6 +244,7 @@ function SidebarContent({
         <div
           onDragOver={(e) => {
             e.preventDefault()
+            e.dataTransfer.dropEffect = "move"
             setTopOver(true)
           }}
           onDragLeave={() => setTopOver(false)}

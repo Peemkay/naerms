@@ -71,13 +71,35 @@ export async function getFormationPickerOptions(): Promise<FormationPickerOption
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 
-/** Same picker options, restricted to one formation's visible scope. */
+/**
+ * Same picker options, restricted to one formation's visible scope.
+ *
+ * A formation sitting at the top level also sees the other top-level
+ * formations, which are outside its subtree by definition. Without that,
+ * NAS could never be placed under a newly created Army Headquarters: the
+ * only formation it could ever report to would be one of its own
+ * subordinates, which the cycle guard rightly refuses.
+ */
 export async function getFormationOptionsInScope(rootFormationId: string): Promise<FormationPickerOption[]> {
-  const [all, visibleIds] = await Promise.all([
+  const [all, visibleIds, self] = await Promise.all([
     getFormationPickerOptions(),
     getVisibleFormationIds(rootFormationId),
+    prisma.formation.findUnique({
+      where: { id: rootFormationId },
+      select: { parentId: true },
+    }),
   ])
+
   const visible = new Set(visibleIds)
+
+  if (self && self.parentId === null) {
+    const topLevel = await prisma.formation.findMany({
+      where: { parentId: null },
+      select: { id: true },
+    })
+    for (const f of topLevel) visible.add(f.id)
+  }
+
   return all.filter((f) => visible.has(f.id))
 }
 

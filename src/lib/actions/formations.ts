@@ -165,7 +165,15 @@ export async function moveFormationAction(
       select: { id: true, name: true },
     })
     if (!newParent) return { error: "That parent formation no longer exists." }
-    if (!visibleIds.includes(parentId)) {
+
+    // The new parent normally has to be in scope too. The exception is a
+    // formation that currently sits at the top level: it has no superior to
+    // answer to, so placing it under one (NAS moving under an Army
+    // Headquarters, say) is a legitimate act that by definition targets
+    // something outside its own subtree. The cycle guard below still
+    // applies, so this cannot be used to detach a branch.
+    const movingFromTopLevel = target.parentId === null
+    if (!visibleIds.includes(parentId) && !movingFromTopLevel) {
       return { error: "Both formations must be within your scope." }
     }
     newParentName = newParent.name
