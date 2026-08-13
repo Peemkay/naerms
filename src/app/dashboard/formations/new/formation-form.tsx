@@ -77,7 +77,11 @@ export function FormationForm({
         <FieldLabel>Parent Formation</FieldLabel>
         <Select name="parentId" defaultValue={defaultParentId}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select parent formation" />
+            {/* Base UI hands the raw value to Value, so without this the
+                trigger shows a cuid instead of the formation's name. */}
+            <SelectValue placeholder="Select parent formation">
+              {(value: string) => options.find((o) => o.id === value)?.path ?? "Select parent formation"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {options.map((o) => (

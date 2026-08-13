@@ -18,8 +18,8 @@ export default async function NewFormationPage() {
       </div>
       <Card>
         <CardHeader className="text-sm text-muted-foreground">
-          Chain of command (parent) is required. Role and attachment only apply to Signal
-          Regiments and Brigade Signals units.
+          Only the name and the parent are required. Role and attachment are optional
+          descriptors, and the parent can be changed later by dragging in the tree.
         </CardHeader>
         <CardContent>
           <FormationForm

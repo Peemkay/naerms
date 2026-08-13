@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { moveFormationAction } from "@/lib/actions/formations"
+import { moveFormationAction, reorderFormationsAction } from "@/lib/actions/formations"
 
 /** A pending drop, held until the user confirms it. */
 type PendingMove = { id: string; name: string; parentId: string | null; parentName: string }
@@ -61,10 +61,14 @@ function TreeNode({
     onDragEnd: () => void
     onDrop: (parent: FormationTreeNode) => void
     onDropTopLevel: () => void
+    /** True when the dragged formation and this one share a parent. */
+    canReorderWith: (node: FormationTreeNode) => boolean
+    onDropBefore: (sibling: FormationTreeNode) => void
   }
 }) {
   const pathname = usePathname()
   const [over, setOver] = useState(false)
+  const [overBefore, setOverBefore] = useState(false)
   const href = nodeHref(node, rootId)
   const active = pathname === href
 
@@ -80,6 +84,30 @@ function TreeNode({
 
   return (
     <li>
+      {/* A thin strip above each row reorders siblings instead of
+          re-parenting: dropping *onto* a formation puts you under it,
+          dropping *between* two puts you beside them. Only shown while
+          dragging a sibling, since ordering only means anything within one
+          parent's children. */}
+      {drag?.draggingId && drag.canReorderWith(node) && (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            setOverBefore(true)
+          }}
+          onDragLeave={() => setOverBefore(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setOverBefore(false)
+            drag.onDropBefore(node)
+          }}
+          style={{ marginLeft: `${depth * 14 + 10}px` }}
+          className={cn(
+            "h-1.5 rounded-full transition-colors",
+            overBefore ? "bg-primary" : "bg-transparent"
+          )}
+        />
+      )}
       <div
         onDragOver={(e) => {
           if (!canDrop) return
@@ -187,7 +215,7 @@ function SidebarContent({
       </div>
       {drag && (
         <p className="px-4 pb-2 text-[11px] text-muted-foreground">
-          Drag a formation onto another to change who it reports to.
+          Drag onto a formation to move it there, or between two to reorder.
         </p>
       )}
 
@@ -274,6 +302,30 @@ export function FormationTreeSidebar({
             name: moving.name,
             parentId: null,
             parentName: "the top level",
+          })
+        },
+        canReorderWith: (node: FormationTreeNode) =>
+          !!dragged && node.id !== dragged.id && node.parentId === dragged.parentId,
+        onDropBefore: (sibling: FormationTreeNode) => {
+          const moving = draggingId ? findNode(tree, draggingId) : null
+          setDraggingId(null)
+          if (!moving || moving.id === sibling.id) return
+
+          // Reordering only rearranges a listing, so unlike a move it is
+          // applied straight away: nothing about who can see what changes.
+          const parent = moving.parentId ? findNode(tree, moving.parentId) : null
+          const siblings = (parent ? parent.children : [tree]).map((c) => c.id)
+          const without = siblings.filter((id) => id !== moving.id)
+          const at = without.indexOf(sibling.id)
+          const orderedIds = [...without.slice(0, at), moving.id, ...without.slice(at)]
+
+          startTransition(async () => {
+            const res = await reorderFormationsAction({
+              parentId: moving.parentId,
+              orderedIds,
+            })
+            if ("error" in res) toast.error(res.error)
+            else router.refresh()
           })
         },
       }
