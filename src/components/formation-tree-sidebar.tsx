@@ -72,14 +72,10 @@ function TreeNode({
   const href = nodeHref(node, rootId)
   const active = pathname === href
 
-  // Only the drag handle is draggable, not the whole row: the row is a
-  // link, and making a link draggable turns every slightly-off click into a
-  // drag instead of a navigation.
-  //
-  // The topmost visible formation is draggable too. It is only "the root" of
-  // this viewer's scope, not of the world — NAS itself is expected to end up
-  // under an Army Headquarters — and it can always be dropped on the
-  // top-level zone even when no other target is legal.
+  // Every row is draggable, including the topmost one: that node is only
+  // the root of this viewer's scope, not of the world — NAS itself is
+  // expected to end up under an Army Headquarters — and it can always be
+  // dropped on the top-level zone even when no other target is legal.
   const canDrag = !!drag
   const isDragging = drag?.draggingId === node.id
   // A node can't be dropped onto itself or anything beneath it — that would
@@ -115,6 +111,21 @@ function TreeNode({
         />
       )}
       <div
+        // The whole row is the drag source, not just the grip. A 12px
+        // half-transparent icon was effectively impossible to grab, which
+        // read as "dragging doesn't work". The row's link still navigates:
+        // a click and a drag are distinct gestures, and the browser only
+        // starts a drag once the pointer actually moves.
+        draggable={canDrag}
+        onDragStart={(e) => {
+          if (!canDrag) return
+          // A drag carrying no payload is cancelled outright by Chrome and
+          // Safari, so without this the whole gesture silently did nothing.
+          e.dataTransfer.setData("text/plain", node.id)
+          e.dataTransfer.effectAllowed = "move"
+          drag?.onDragStart(node.id)
+        }}
+        onDragEnd={() => drag?.onDragEnd()}
         onDragOver={(e) => {
           if (!canDrop) return
           // preventDefault is what marks this a valid drop target at all;
@@ -136,33 +147,28 @@ function TreeNode({
           active
             ? "bg-secondary font-medium text-secondary-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          canDrag && "cursor-grab active:cursor-grabbing",
           isDragging && "opacity-40",
           over && canDrop && "ring-2 ring-primary ring-inset"
         )}
       >
         {canDrag && (
           <span
-            draggable
-            onDragStart={(e) => {
-              // A drag with no data payload is cancelled outright by Chrome
-              // and Safari, so the whole gesture silently did nothing. The
-              // id is what the drop handlers read back, and setting
-              // effectAllowed is what gives the cursor its "move" affordance.
-              e.dataTransfer.setData("text/plain", node.id)
-              e.dataTransfer.effectAllowed = "move"
-              drag?.onDragStart(node.id)
-            }}
-            onDragEnd={() => drag?.onDragEnd()}
             aria-label={`Drag ${node.name} to a new parent formation`}
-            title="Drag onto another formation to move it there"
-            className="shrink-0 cursor-grab text-muted-foreground/50 hover:text-foreground active:cursor-grabbing"
+            title="Drag this row onto another formation to move it there"
+            className="shrink-0 cursor-grab text-muted-foreground/60 active:cursor-grabbing"
           >
-            <GripVertical className="size-3" />
+            <GripVertical className="size-3.5" />
           </span>
         )}
         <Link
           href={href}
           onClick={onNavigate}
+          // An anchor is natively draggable and would start its own
+          // link-drag, hijacking the gesture from the row and leaving the
+          // formation unmovable. Turning that off lets the row's handler
+          // own it; clicking the link still navigates normally.
+          draggable={false}
           className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm"
         >
           <span className="truncate">{node.name}</span>
