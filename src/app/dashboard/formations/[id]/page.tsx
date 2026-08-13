@@ -23,10 +23,14 @@ export default async function FormationDrilldownPage({
 
   const data = await getFormationOverviewData(id)
   const canManageFormations = session.user.privileges.includes("MANAGE_FORMATIONS")
+  // The Edit dialog can rename (MANAGE_FORMATIONS) and move (MOVE_FORMATIONS),
+  // so either privilege earns the button; each action still checks its own.
+  const canEditFormation =
+    canManageFormations || session.user.privileges.includes("MOVE_FORMATIONS")
   // Candidate parents are the caller's own scope, which is exactly what
   // moveFormationAction will accept — offering more would just produce a
   // rejection after the fact.
-  const parentOptions = canManageFormations
+  const parentOptions = canEditFormation
     ? await getFormationOptionsInScope(session.user.id)
     : undefined
 
@@ -37,7 +41,7 @@ export default async function FormationDrilldownPage({
       filterStatus={status as ReturnStatus | undefined}
       filterCondition={condition as EquipmentCondition | undefined}
       canRequestReturn={id !== session.user.id}
-      canManageFormations={canManageFormations}
+      canManageFormations={canEditFormation}
       parentOptions={parentOptions}
     />
   )

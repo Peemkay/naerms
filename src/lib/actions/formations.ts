@@ -74,7 +74,7 @@ export async function renameFormationAction(
  * (and thereby touch) formations elsewhere in the tree.
  */
 export async function reorderFormationsAction(values: unknown): Promise<ActionResult> {
-  const session = await requirePrivilege("MANAGE_FORMATIONS")
+  const session = await requirePrivilege("MOVE_FORMATIONS")
 
   const parsed = reorderFormationsSchema.safeParse(values)
   if (!parsed.success) return { error: "Invalid ordering." }
@@ -127,7 +127,7 @@ export async function moveFormationAction(
   formationId: string,
   values: unknown
 ): Promise<ActionResult> {
-  const session = await requirePrivilege("MANAGE_FORMATIONS")
+  const session = await requirePrivilege("MOVE_FORMATIONS")
 
   const parsed = moveFormationSchema.safeParse(values)
   if (!parsed.success) {
