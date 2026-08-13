@@ -1,6 +1,6 @@
 import "dotenv/config"
 import bcrypt from "bcryptjs"
-import type { FormationRole, FormationType, Privilege } from "@prisma/client"
+import type { FormationRole, Privilege } from "@prisma/client"
 
 import { prisma } from "../src/lib/prisma"
 
@@ -20,7 +20,6 @@ type Node = {
   /** Short code driving the login address and password. */
   code: string
   name: string
-  type: FormationType
   role?: FormationRole
   children?: Node[]
 }
@@ -56,15 +55,11 @@ const FULL: Privilege[] = [
 ]
 const UNIT_LEVEL: Privilege[] = ["VERIFY_RETURNS", "DELETE_RETURNS"]
 
-function privilegesFor(type: FormationType): Privilege[] {
-  switch (type) {
-    case "SIGNAL_REGIMENT":
-    case "BRIGADE_SIGNALS":
-    case "UNIT":
-      return UNIT_LEVEL
-    default:
-      return FULL
-  }
+function privilegesFor(node: Node): Privilege[] {
+  // Formation type is gone, so "is this a headquarters?" is answered by the
+  // tree itself: a formation with subordinates commands them and gets the
+  // full set; a leaf works its own register only.
+  return (node.children?.length ?? 0) > 0 ? FULL : UNIT_LEVEL
 }
 
 /**
@@ -79,53 +74,49 @@ function privilegesFor(type: FormationType): Privilege[] {
 const TREE: Node = {
   code: "CCS",
   name: "Commander Corps of Signals (CCS)",
-  type: "COMMAND",
   children: [
-    { code: "NASS", name: "Nigerian Army School of Signals (NASS)", type: "SCHOOL" },
+    { code: "NASS", name: "Nigerian Army School of Signals (NASS)" },
 
     // Signals Commands, Lagos.
-    { code: "55 SC", name: "55 Signals Command", type: "COMMAND" },
-    { code: "56 SC", name: "56 Signals Command", type: "COMMAND" },
-    { code: "57 SC", name: "57 Signals Command", type: "COMMAND" },
-    { code: "58 SC", name: "58 Signals Command", type: "COMMAND" },
+    { code: "55 SC", name: "55 Signals Command" },
+    { code: "56 SC", name: "56 Signals Command" },
+    { code: "57 SC", name: "57 Signals Command" },
+    { code: "58 SC", name: "58 Signals Command" },
 
-    { code: "NASDC", name: "NA System Development Centre (NASDC)", type: "COMMAND" },
+    { code: "NASDC", name: "NA System Development Centre (NASDC)" },
 
     {
       code: "NACWC",
       name: "Nigerian Army Cyber Warfare Command (NACWC)",
-      type: "COMMAND",
       children: [
-        { code: "NACWS", name: "Nigerian Army Cyber Warfare School (NACWS)", type: "SCHOOL" },
+        { code: "NACWS", name: "Nigerian Army Cyber Warfare School (NACWS)" },
       ],
     },
 
     // Signal brigades. 57 SB and 57 SC are distinct formations that share a
     // number, which is why the login address carries the type as well.
-    { code: "53 SB", name: "53 Signal Brigade", type: "SIGNAL_BRIGADE" },
-    { code: "57 SB", name: "57 Signal Brigade", type: "SIGNAL_BRIGADE" },
+    { code: "53 SB", name: "53 Signal Brigade" },
+    { code: "57 SB", name: "57 Signal Brigade" },
 
-    { code: "540 SR", name: "540 Signal Regiment", type: "SIGNAL_REGIMENT", role: "OPERATIONAL" },
-    { code: "590 SR", name: "590 Signal Regiment", type: "SIGNAL_REGIMENT", role: "OPERATIONAL" },
+    { code: "540 SR", name: "540 Signal Regiment", role: "OPERATIONAL" },
+    { code: "590 SR", name: "590 Signal Regiment", role: "OPERATIONAL" },
 
-    { code: "521 BS", name: "521 Brigade Signals", type: "BRIGADE_SIGNALS", role: "ATTACHED" },
-    { code: "541 BS", name: "541 Brigade Signals", type: "BRIGADE_SIGNALS", role: "ATTACHED" },
+    { code: "521 BS", name: "521 Brigade Signals", role: "ATTACHED" },
+    { code: "541 BS", name: "541 Brigade Signals", role: "ATTACHED" },
 
     {
       code: "AHQGSG",
       name: "Army Headquarters Garrison and Signal Group",
-      type: "COMMAND",
       children: [
         {
           code: "LGSR",
           name: "Lagos Garrison Signal Regiment",
-          type: "SIGNAL_REGIMENT",
           role: "OPERATIONAL",
         },
       ],
     },
 
-    { code: "COSL", name: "Corps of Signals, Lagos", type: "COMMAND" },
+    { code: "COSL", name: "Corps of Signals, Lagos" },
   ],
 }
 
@@ -148,12 +139,11 @@ async function seed(node: Node, parentId: string) {
     const formation = await prisma.formation.create({
       data: {
         name: node.name,
-        type: node.type,
         role: node.role ?? null,
         parentId,
         email,
         passwordHash: await bcrypt.hash(password, 10),
-        privileges: privilegesFor(node.type),
+        privileges: privilegesFor(node),
         isActive: true,
       },
     })
@@ -170,9 +160,9 @@ async function seed(node: Node, parentId: string) {
 }
 
 async function main() {
-  const root = await prisma.formation.findFirst({ where: { type: "ROOT" } })
+  const root = await prisma.formation.findFirst({ where: { parentId: null } })
   if (!root) {
-    console.error("No ROOT formation found. Run the main seed first (npm run db:seed).")
+    console.error("No top-level formation found. Run the main seed first (npm run db:seed).")
     process.exit(1)
   }
 

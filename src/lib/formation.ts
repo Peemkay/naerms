@@ -21,21 +21,24 @@ export async function getFormationAncestors(formationId: string): Promise<Format
 }
 
 /**
- * BS business rule: a return's `origin` defaults to the nearest
- * BRIGADE_SIGNALS ancestor's `attachedTo` (walking self-upward, since a UNIT
- * sitting under a BS detachment inherits its parent's attachment). Returns
- * null for anyone not in a BS lineage — the clerk just types origin in free.
+ * A return's `origin` defaults to the nearest ancestor that records an
+ * operational attachment, walking self-upward so a unit under an attached
+ * detachment inherits it. Returns null when nothing in the lineage is
+ * attached anywhere — the clerk just types origin in free.
+ *
+ * Previously this looked for a BRIGADE_SIGNALS ancestor specifically.
+ * Formation type is gone, and `attachedTo` was always the thing that
+ * mattered, so the presence of an attachment is the rule now.
  */
 export async function getDefaultOriginForFormation(formationId: string): Promise<string | null> {
   const ancestors = await getFormationAncestors(formationId)
-  const bsAncestor = ancestors.find((f) => f.type === "BRIGADE_SIGNALS")
-  return bsAncestor?.attachedTo ?? null
+  const attachedAncestor = ancestors.find((f) => f.attachedTo)
+  return attachedAncestor?.attachedTo ?? null
 }
 
 export type FormationPickerOption = {
   id: string
   name: string
-  type: Formation["type"]
   path: string
 }
 
@@ -47,7 +50,7 @@ export type FormationPickerOption = {
  */
 export async function getFormationPickerOptions(): Promise<FormationPickerOption[]> {
   const formations = await prisma.formation.findMany({
-    select: { id: true, name: true, type: true, parentId: true },
+    select: { id: true, name: true, parentId: true, sortOrder: true },
   })
   const byId = new Map(formations.map((f) => [f.id, f]))
 
@@ -64,7 +67,7 @@ export async function getFormationPickerOptions(): Promise<FormationPickerOption
   }
 
   return formations
-    .map((f) => ({ id: f.id, name: f.name, type: f.type, path: pathFor(f) }))
+    .map((f) => ({ id: f.id, name: f.name, path: pathFor(f) }))
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 
@@ -109,7 +112,7 @@ export async function getGroupedFormationsInScope(
   const visibleIds = await getVisibleFormationIds(rootFormationId)
   const formations = await prisma.formation.findMany({
     where: { id: { in: visibleIds } },
-    select: { id: true, name: true, parentId: true, type: true },
+    select: { id: true, name: true, parentId: true, sortOrder: true },
     orderBy: { name: "asc" },
   })
 

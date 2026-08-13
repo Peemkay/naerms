@@ -59,7 +59,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         </Card>
       )}
 
-      {canManageFormations && formation.id !== session.user.id && formation.type !== "ROOT" && (
+      {canManageFormations && formation.id !== session.user.id && formation.parentId !== null && (
         <Card className="border-destructive/30">
           <CardHeader className="text-sm font-medium text-destructive">Danger Zone</CardHeader>
           <CardContent>

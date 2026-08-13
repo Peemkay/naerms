@@ -25,12 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { FORMATION_TYPE_TAG, FORMATION_ROLE_LABEL } from "@/lib/formation-labels"
-import {
-  CREATABLE_FORMATION_TYPES,
-  FORMATION_ROLES,
-  renameFormationSchema,
-} from "@/lib/validation/formation"
+import { FORMATION_ROLE_LABEL } from "@/lib/formation-labels"
+import { FORMATION_ROLES, renameFormationSchema } from "@/lib/validation/formation"
 import { moveFormationAction, renameFormationAction } from "@/lib/actions/formations"
 import type { FormationPickerOption } from "@/lib/formation"
 
@@ -50,7 +46,6 @@ export function EditFormationButton({
   formation: {
     id: string
     name: string
-    type: string
     role: string | null
     attachedTo: string | null
     parentId: string | null
@@ -64,11 +59,10 @@ export function EditFormationButton({
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const [type, setType] = useState(formation.type)
   const [role, setRole] = useState(formation.role ?? "")
   const [parentId, setParentId] = useState(formation.parentId ?? "")
 
-  const isRoot = formation.type === "ROOT"
+  // A formation with no parent sits at the top level.
   // Can't report to itself, and can't report to anything inside its own
   // subtree — the server refuses those too, this just avoids offering them.
   const candidates = parentOptions.filter((o) => o.id !== formation.id)
@@ -84,7 +78,7 @@ export function EditFormationButton({
         <DialogHeader>
           <DialogTitle>Edit {formation.name}</DialogTitle>
           <DialogDescription>
-            Rename it, correct its type, or move it to report to a different formation.
+            Rename it, or move it to report to a different formation.
           </DialogDescription>
         </DialogHeader>
 
@@ -92,7 +86,7 @@ export function EditFormationButton({
           errors={errors}
           onFormSubmit={(values) => {
             setFormError(null)
-            const result = renameFormationSchema.safeParse({ ...values, type, role })
+            const result = renameFormationSchema.safeParse({ ...values, role })
             if (!result.success) {
               setErrors(z.flattenError(result.error).fieldErrors as Record<string, string | string[]>)
               return
@@ -111,8 +105,8 @@ export function EditFormationButton({
 
               // Only issued when the parent actually changed, so an ordinary
               // rename never risks the move path's failure modes.
-              if (parentChanged && parentId) {
-                const moved = await moveFormationAction(formation.id, { parentId })
+              if (parentChanged) {
+                const moved = await moveFormationAction(formation.id, { parentId: parentId || null })
                 if ("error" in moved) {
                   // The rename already succeeded, so say so rather than
                   // implying the whole edit failed.
@@ -135,28 +129,6 @@ export function EditFormationButton({
             <FieldError />
           </Field>
 
-          <Field name="type">
-            <FieldLabel>Type</FieldLabel>
-            <Select value={type} onValueChange={(v) => setType(v ?? type)} disabled={isRoot}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a type" />
-              </SelectTrigger>
-              <SelectContent>
-                {CREATABLE_FORMATION_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {FORMATION_TYPE_TAG[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isRoot && (
-              <FieldDescription>
-                The root formation&apos;s type is fixed. It can still be renamed.
-              </FieldDescription>
-            )}
-            <FieldError />
-          </Field>
-
           <Field name="role">
             <FieldLabel>Role (optional)</FieldLabel>
             <Select value={role || "none"} onValueChange={(v) => setRole(!v || v === "none" ? "" : v)}>
@@ -175,29 +147,31 @@ export function EditFormationButton({
             <FieldError />
           </Field>
 
-          {type === "BRIGADE_SIGNALS" && (
-            <Field name="attachedTo">
-              <FieldLabel>Attached To</FieldLabel>
-              <Input
-                name="attachedTo"
-                defaultValue={formation.attachedTo ?? ""}
-                placeholder="e.g. 4 Mechanised Infantry Brigade"
-              />
-              <FieldDescription>
-                The formation it supports operationally. This is not a chain-of-command change.
-              </FieldDescription>
-              <FieldError />
-            </Field>
-          )}
+          <Field name="attachedTo">
+            <FieldLabel>Attached To (optional)</FieldLabel>
+            <Input
+              name="attachedTo"
+              defaultValue={formation.attachedTo ?? ""}
+              placeholder="e.g. 4 Mechanised Infantry Brigade"
+            />
+            <FieldDescription>
+              A formation it supports operationally. This is not a chain-of-command change.
+            </FieldDescription>
+            <FieldError />
+          </Field>
 
-          {!isRoot && (
+          {
             <Field name="parentId">
               <FieldLabel>Reports To</FieldLabel>
-              <Select value={parentId} onValueChange={(v) => setParentId(v ?? parentId)}>
+              <Select value={parentId || "none"} onValueChange={(v) => setParentId(!v || v === "none" ? "" : v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a parent formation" />
+                  <SelectValue placeholder="Top level (no parent)" />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Top level is a real option, not an absence: it is how
+                      NAS sits, and picking it is what lets any formation
+                      (NAS included) be moved out from under its parent. */}
+                  <SelectItem value="none">Top level (no parent)</SelectItem>
                   {candidates.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.path}
@@ -212,7 +186,7 @@ export function EditFormationButton({
               </FieldDescription>
               <FieldError />
             </Field>
-          )}
+          }
 
           {formError && (
             <p role="alert" className="text-sm font-medium text-destructive">

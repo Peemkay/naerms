@@ -17,16 +17,11 @@ datasource db {
 // as a pure org-chart node with no login at all.
 // ---------------------------------------------------------------------
 
-enum FormationType {
-  ROOT // NAS (Nigerian Army Signals) — top of the tree
-  COMMAND // e.g. NACWC
-  SCHOOL
-  SIGNAL_BRIGADE // e.g. 52 Signals Brigade
-  SIGNAL_REGIMENT // SR — sits directly under a Signal Brigade (e.g. 520 SR, 525 SR)
-  BRIGADE_SIGNALS // BS — administratively under NAS, but supports another corps' brigade (e.g. 521 BS)
-  UNIT // lowest level — where returns are actually submitted
-}
-
+// Formation type was removed: classifying every formation as BRIGADE /
+// REGIMENT / SCHOOL and so on added a required field to every form while
+// changing nothing about how the system behaves. Position in the tree is
+// what actually matters — scope, notifications and returns are all computed
+// from parentId alone — so the tree is now the only classification.
 enum FormationRole {
   OPERATIONAL // e.g. 520 SR — field comms
   SUPPORT // e.g. 525 SR — maintenance, workshops, supply
@@ -49,13 +44,20 @@ enum Privilege {
 model Formation {
   id   String         @id @default(cuid())
   name String // e.g. "521 Brigade Signals"
-  type FormationType
-  role FormationRole? // relevant for SR / BS, optional elsewhere
+  role FormationRole? // optional descriptor, not a classification
 
-  // NAS chain of command — every formation's real reporting line stays pure NAS
+  // NAS chain of command. A formation with no parent sits at the top level:
+  // usually just NAS, but the tree deliberately allows several, so that any
+  // formation (NAS included) can be moved without one node being unmovable
+  // by definition.
   parentId String?
   parent   Formation?  @relation("FormationTree", fields: [parentId], references: [id])
   children Formation[] @relation("FormationTree")
+
+  // Manual ordering among siblings, set by dragging in the tree. Ties break
+  // on name, so formations that have never been dragged still list
+  // predictably.
+  sortOrder Int @default(0)
 
   // For BS units only: the external corps brigade they support operationally.
   // Kept separate from parentId — attachment is NOT a chain-of-command change.
@@ -178,7 +180,7 @@ model ReturnItem {
   // i.e. the sub-unit or detachment the equipment actually went to. Free
   // text, because it routinely names bodies that aren't formations in the
   // tree at all.
-  fmnUnitIssued   String?
+  fmnUnitIssued String?
 
   status ReturnStatus @default(PENDING) // workflow state
 

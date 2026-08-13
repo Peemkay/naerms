@@ -24,5 +24,14 @@ export async function getVisibleFormationTree(rootFormationId: string): Promise<
   }
 
   if (!root) throw new Error("Root formation missing from its own visible set")
+
+  // Manual order first (set by dragging), then name — so formations nobody
+  // has reordered still list predictably instead of in insertion order.
+  const sortChildren = (node: FormationTreeNode) => {
+    node.children.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    node.children.forEach(sortChildren)
+  }
+  sortChildren(root)
+
   return root
 }

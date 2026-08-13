@@ -33,7 +33,7 @@ export default async function SheetPage({
 
   const formation = await prisma.formation.findUnique({
     where: { id: targetId },
-    select: { id: true, name: true, type: true, _count: { select: { children: true } } },
+    select: { id: true, name: true, _count: { select: { children: true } } },
   })
   if (!formation) notFound()
 

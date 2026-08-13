@@ -8,7 +8,6 @@ import { toast } from "sonner"
 import { GripVertical, Menu, Plus } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { FORMATION_TYPE_TAG } from "@/lib/formation-labels"
 import type { FormationTreeNode } from "@/lib/formation-tree"
 import {
   Dialog,
@@ -24,7 +23,7 @@ import { Button } from "@/components/ui/button"
 import { moveFormationAction } from "@/lib/actions/formations"
 
 /** A pending drop, held until the user confirms it. */
-type PendingMove = { id: string; name: string; parentId: string; parentName: string }
+type PendingMove = { id: string; name: string; parentId: string | null; parentName: string }
 
 /** Every id at or below `node` — the set a node may not be dropped onto. */
 function subtreeIds(node: FormationTreeNode): string[] {
@@ -61,6 +60,7 @@ function TreeNode({
     onDragStart: (id: string) => void
     onDragEnd: () => void
     onDrop: (parent: FormationTreeNode) => void
+    onDropTopLevel: () => void
   }
 }) {
   const pathname = usePathname()
@@ -120,20 +120,31 @@ function TreeNode({
           onClick={onNavigate}
           className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm"
         >
-          <span className="rounded border border-border px-1 text-[10px] tracking-wide text-muted-foreground uppercase">
-            {FORMATION_TYPE_TAG[node.type]}
-          </span>
           <span className="truncate">{node.name}</span>
+          {node.children.length > 0 && (
+            <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
+              {node.children.length}
+            </span>
+          )}
         </Link>
       </div>
+      {/* A formation holding subordinates is drawn as a bordered group, so
+          where one parent's children end and the next begins is visible at a
+          glance. The border sits on the list, not the rows, so a child can
+          still be dragged out of it onto any other formation. */}
       {node.children.length > 0 && (
-        <ul>
+        <ul
+          className="my-0.5 ml-3 border-l-2 border-border/70 pl-1"
+          style={{ marginLeft: `${depth * 14 + 16}px` }}
+        >
           {node.children.map((child) => (
             <TreeNode
               key={child.id}
               node={child}
               rootId={rootId}
-              depth={depth + 1}
+              // Indentation now comes from the group's own left margin, so
+              // rows inside a group all sit at the same depth.
+              depth={0}
               onNavigate={onNavigate}
               drag={drag}
             />
@@ -155,6 +166,8 @@ function SidebarContent({
   onNavigate?: () => void
   drag?: React.ComponentProps<typeof TreeNode>["drag"]
 }) {
+  const [topOver, setTopOver] = useState(false)
+
   return (
     <>
       <div className="flex items-center justify-between px-4 pb-2">
@@ -177,6 +190,34 @@ function SidebarContent({
           Drag a formation onto another to change who it reports to.
         </p>
       )}
+
+      {/* Dropping here detaches a formation to the top level, alongside NAS
+          rather than beneath it. Without this the topmost formation would be
+          unmovable by definition: everything else is inside its own subtree,
+          so every other target is refused as a cycle. */}
+      {drag?.draggingId && (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            setTopOver(true)
+          }}
+          onDragLeave={() => setTopOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setTopOver(false)
+            drag.onDropTopLevel()
+          }}
+          className={cn(
+            "mx-3 mb-2 rounded-md border border-dashed px-2 py-1.5 text-center text-[11px] transition-colors",
+            topOver
+              ? "border-primary bg-primary/10 text-foreground"
+              : "border-border text-muted-foreground"
+          )}
+        >
+          Drop here to move to the top level
+        </div>
+      )}
+
       <ul>
         <TreeNode node={tree} rootId={tree.id} depth={0} onNavigate={onNavigate} drag={drag} />
       </ul>
@@ -223,6 +264,17 @@ export function FormationTreeSidebar({
           // from silently re-parenting a unit that is carrying returns, and
           // the move changes who can see that unit's whole subtree.
           setPending({ id: moving.id, name: moving.name, parentId: parent.id, parentName: parent.name })
+        },
+        onDropTopLevel: () => {
+          const moving = draggingId ? findNode(tree, draggingId) : null
+          setDraggingId(null)
+          if (!moving) return
+          setPending({
+            id: moving.id,
+            name: moving.name,
+            parentId: null,
+            parentName: "the top level",
+          })
         },
       }
     : undefined

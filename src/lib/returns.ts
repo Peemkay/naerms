@@ -17,7 +17,7 @@ export function getReturnItemsForFormations(formationIds: string[]) {
     where: { return: { formationId: { in: formationIds }, isDraft: false } },
     include: {
       return: {
-        include: { formation: { select: { id: true, name: true, type: true } } },
+        include: { formation: { select: { id: true, name: true } } },
       },
     },
     orderBy: { createdAt: "desc" },

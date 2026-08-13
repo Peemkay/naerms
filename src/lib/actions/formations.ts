@@ -13,6 +13,7 @@ import {
   accountFormSchema,
   formationFormSchema,
   moveFormationSchema,
+  reorderFormationsSchema,
   privilegesFormSchema,
   renameFormationSchema,
 } from "@/lib/validation/formation"
@@ -22,11 +23,10 @@ type ActionResult =
   | { error: string; fieldErrors?: Record<string, string[] | undefined> }
 
 /**
- * Renames a formation, and can correct its type, role and attachment.
+ * Renames a formation and updates its role and attachment.
  *
  * Its place in the tree is untouched — moving is a separate, more dangerous
- * operation (see moveFormationAction). ROOT can be renamed but not
- * re-typed: there is exactly one root and the whole scope model assumes it.
+ * operation (see moveFormationAction).
  */
 export async function renameFormationAction(
   formationId: string,
@@ -41,7 +41,7 @@ export async function renameFormationAction(
 
   const target = await prisma.formation.findUnique({
     where: { id: formationId },
-    select: { id: true, type: true },
+    select: { id: true },
   })
   if (!target) return { error: "That formation no longer exists." }
 
@@ -52,24 +52,10 @@ export async function renameFormationAction(
     return { error: "That formation is outside your scope." }
   }
 
-  // ROOT isn't in CREATABLE_FORMATION_TYPES, so a submitted type can never
-  // be "ROOT": any type sent for the root formation is necessarily a change
-  // away from it, which the update below ignores rather than rejects (the
-  // name still needs saving).
-
-  if (parsed.data.type === "BRIGADE_SIGNALS" && !parsed.data.attachedTo) {
-    return {
-      error: "Brigade Signals units must record which formation they support.",
-      fieldErrors: { attachedTo: ["Required for Brigade Signals"] },
-    }
-  }
-
   await prisma.formation.update({
     where: { id: formationId },
     data: {
       name: parsed.data.name,
-      // ROOT keeps its type; everything else takes what was submitted.
-      ...(target.type === "ROOT" ? {} : { type: parsed.data.type }),
       role: parsed.data.role || null,
       attachedTo: parsed.data.attachedTo || null,
     },
@@ -77,6 +63,45 @@ export async function renameFormationAction(
 
   revalidatePath("/dashboard", "layout")
   return { success: true, id: formationId }
+}
+
+/**
+ * Reorders siblings under one parent, from a drag in the tree.
+ *
+ * Purely cosmetic: sortOrder affects listing order and nothing else, so
+ * this needs none of the cycle guards a move does. The ids must all be
+ * actual children of the given parent, so a crafted request can't reorder
+ * (and thereby touch) formations elsewhere in the tree.
+ */
+export async function reorderFormationsAction(values: unknown): Promise<ActionResult> {
+  const session = await requirePrivilege("MANAGE_FORMATIONS")
+
+  const parsed = reorderFormationsSchema.safeParse(values)
+  if (!parsed.success) return { error: "Invalid ordering." }
+  const { parentId, orderedIds } = parsed.data
+
+  const visibleIds = await getVisibleFormationIds(session.user.id)
+  if (orderedIds.some((id) => !visibleIds.includes(id))) {
+    return { error: "Those formations are outside your scope." }
+  }
+
+  const siblings = await prisma.formation.findMany({
+    where: { parentId: parentId ?? null },
+    select: { id: true },
+  })
+  const siblingIds = new Set(siblings.map((s) => s.id))
+  if (orderedIds.some((id) => !siblingIds.has(id))) {
+    return { error: "Those formations do not share a parent." }
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.formation.update({ where: { id }, data: { sortOrder: index } })
+    )
+  )
+
+  revalidatePath("/dashboard", "layout")
+  return { success: true, id: orderedIds[0] }
 }
 
 /**
@@ -88,11 +113,15 @@ export async function renameFormationAction(
  * guards below, each of which prevents a specific way of corrupting the
  * tree:
  *
- *   - moving into your own subtree would detach that branch from the root
- *     entirely, leaving its returns visible to nobody;
- *   - moving the root would leave the tree with no root at all;
+ *   - moving into your own subtree would detach that branch entirely,
+ *     leaving its returns visible to nobody;
  *   - both formations must be in the caller's scope, so a brigade cannot
  *     reach outside its own command to rearrange someone else's units.
+ *
+ * A null parent means "top level". Every formation is movable, NAS
+ * included: with a single fixed root, the root was unmovable by definition
+ * (everything else is beneath it, so every target was its own descendant).
+ * Allowing several top-level formations removes that special case.
  */
 export async function moveFormationAction(
   formationId: string,
@@ -104,43 +133,53 @@ export async function moveFormationAction(
   if (!parsed.success) {
     return { error: "Pick the formation it should report to." }
   }
-  const { parentId } = parsed.data
+  // "" from an unset <Select> means the same as absent: the top level.
+  const parentId = parsed.data.parentId ? parsed.data.parentId : null
 
   const target = await prisma.formation.findUnique({
     where: { id: formationId },
-    select: { id: true, name: true, type: true, parentId: true },
+    select: { id: true, name: true, parentId: true },
   })
   if (!target) return { error: "That formation no longer exists." }
 
-  if (target.type === "ROOT") {
-    return { error: "The root formation sits at the top of the tree and cannot be moved." }
-  }
   if (formationId === parentId) {
     return { error: "A formation cannot report to itself." }
   }
   if (target.parentId === parentId) {
-    return { error: `${target.name} already reports to that formation.` }
+    return {
+      error: parentId
+        ? `${target.name} already reports to that formation.`
+        : `${target.name} is already at the top level.`,
+    }
   }
-
-  const newParent = await prisma.formation.findUnique({
-    where: { id: parentId },
-    select: { id: true, name: true },
-  })
-  if (!newParent) return { error: "That parent formation no longer exists." }
 
   const visibleIds = await getVisibleFormationIds(session.user.id)
-  if (!visibleIds.includes(formationId) || !visibleIds.includes(parentId)) {
-    return { error: "Both formations must be within your scope." }
+  if (!visibleIds.includes(formationId)) {
+    return { error: "That formation is outside your scope." }
   }
 
-  // The cycle guard. Moving a formation under one of its own descendants
-  // would cut that whole branch loose from the root: it would still exist,
-  // but no scope query starting at the root could ever reach it, so its
-  // returns would vanish from every dashboard while remaining on file.
-  const subtree = await getVisibleFormationIds(formationId)
-  if (subtree.includes(parentId)) {
-    return {
-      error: `${newParent.name} sits under ${target.name}, so moving it there would detach the branch from the chain of command.`,
+  let newParentName = "the top level"
+  if (parentId) {
+    const newParent = await prisma.formation.findUnique({
+      where: { id: parentId },
+      select: { id: true, name: true },
+    })
+    if (!newParent) return { error: "That parent formation no longer exists." }
+    if (!visibleIds.includes(parentId)) {
+      return { error: "Both formations must be within your scope." }
+    }
+    newParentName = newParent.name
+
+    // The cycle guard. Moving a formation under one of its own descendants
+    // would cut that whole branch loose: it would still exist, but no scope
+    // query from the top could reach it, so its returns would vanish from
+    // every dashboard while remaining on file. Moving to the top level can
+    // never cycle, so this only applies when there is a parent.
+    const subtree = await getVisibleFormationIds(formationId)
+    if (subtree.includes(parentId)) {
+      return {
+        error: `${newParentName} sits under ${target.name}, so moving it there would detach the branch from the chain of command.`,
+      }
     }
   }
 
@@ -162,9 +201,13 @@ export async function createFormationAction(values: unknown): Promise<ActionResu
     return { error: "Check the highlighted fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors }
   }
 
-  const parent = await prisma.formation.findUnique({ where: { id: parsed.data.parentId } })
-  if (!parent) {
-    return { error: "The selected parent formation no longer exists." }
+  // No parent means a top-level formation, which is how NAS itself sits.
+  const parentId = parsed.data.parentId ? parsed.data.parentId : null
+  if (parentId) {
+    const parent = await prisma.formation.findUnique({ where: { id: parentId } })
+    if (!parent) {
+      return { error: "The selected parent formation no longer exists." }
+    }
   }
 
   if (parsed.data.privileges.length > 0 && !canGrant(session.user.privileges, parsed.data.privileges)) {
@@ -186,10 +229,9 @@ export async function createFormationAction(values: unknown): Promise<ActionResu
   const created = await prisma.formation.create({
     data: {
       name: parsed.data.name,
-      type: parsed.data.type,
-      parentId: parsed.data.parentId,
+      parentId,
       role: parsed.data.role || null,
-      attachedTo: parsed.data.type === "BRIGADE_SIGNALS" ? parsed.data.attachedTo || null : null,
+      attachedTo: parsed.data.attachedTo || null,
       email: parsed.data.email || null,
       passwordHash,
       privileges: parsed.data.privileges,
@@ -320,8 +362,16 @@ export async function deleteFormationAction(formationId: string): Promise<Action
 
   const target = await prisma.formation.findUnique({ where: { id: formationId } })
   if (!target) return { error: "Formation not found." }
-  if (target.type === "ROOT") {
-    return { error: "The root formation cannot be deleted." }
+
+  // The last top-level formation can't be deleted: the tree would have no
+  // entry point, and nothing below it would be reachable. Replaces the old
+  // "ROOT cannot be deleted" rule now that top level is a position rather
+  // than a type.
+  if (target.parentId === null) {
+    const topLevelCount = await prisma.formation.count({ where: { parentId: null } })
+    if (topLevelCount <= 1) {
+      return { error: "This is the only top-level formation, so it cannot be deleted." }
+    }
   }
 
   const visibleIds = await getVisibleFormationIds(session.user.id)

@@ -2,15 +2,10 @@ import { z } from "zod"
 
 import { ALL_PRIVILEGES } from "@/lib/privileges"
 
-// ROOT is excluded — there is exactly one (NAS), seeded once, never user-created.
-export const CREATABLE_FORMATION_TYPES = [
-  "COMMAND",
-  "SCHOOL",
-  "SIGNAL_BRIGADE",
-  "SIGNAL_REGIMENT",
-  "BRIGADE_SIGNALS",
-  "UNIT",
-] as const
+// Formation type is gone: it was a required classification on every form
+// that no behaviour depended on. Where a formation sits in the tree is what
+// determines scope, notifications and visibility, so the tree is the
+// classification.
 
 export const FORMATION_ROLES = ["OPERATIONAL", "SUPPORT", "ATTACHED"] as const
 
@@ -21,9 +16,9 @@ export const PRIVILEGE_VALUES = ALL_PRIVILEGES
 
 export const formationFormSchema = z
   .object({
-    name: z.string().trim().min(1, "Name is required"),
-    type: z.enum(CREATABLE_FORMATION_TYPES),
-    parentId: z.string().trim().min(1, "Parent formation is required"),
+    name: z.string().trim().min(1, "Formation/Unit name is required"),
+    // "" means top level (no parent), which is how NAS itself sits.
+    parentId: z.string().trim().optional().or(z.literal("")),
     // "" (not absent) is what an unset <Select> submits — see returnFormSchema.
     role: z.enum(FORMATION_ROLES).optional().or(z.literal("")),
     attachedTo: z.string().trim().optional().or(z.literal("")),
@@ -31,10 +26,6 @@ export const formationFormSchema = z
     email: z.string().trim().toLowerCase().email("Enter a valid email").optional().or(z.literal("")),
     password: z.string().min(8, "At least 8 characters").optional().or(z.literal("")),
     privileges: z.array(z.enum(PRIVILEGE_VALUES)).default([]),
-  })
-  .refine((data) => data.type !== "BRIGADE_SIGNALS" || !!data.attachedTo, {
-    message: "Brigade Signals units must record which formation they support.",
-    path: ["attachedTo"],
   })
   .refine((data) => !data.email === !data.password, {
     message: "Provide both an email and a password, or leave both blank.",
@@ -55,17 +46,28 @@ export const privilegesFormSchema = z.object({
   privileges: z.array(z.enum(PRIVILEGE_VALUES)).default([]),
 })
 
-/** Renaming and re-typing an existing formation, without touching its place in the tree. */
+/** Renaming an existing formation, without touching its place in the tree. */
 export const renameFormationSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  type: z.enum(CREATABLE_FORMATION_TYPES),
+  name: z.string().trim().min(1, "Formation/Unit name is required"),
   role: z.enum(FORMATION_ROLES).optional().or(z.literal("")),
   attachedTo: z.string().trim().optional().or(z.literal("")),
 })
 
 export type RenameFormationInput = z.infer<typeof renameFormationSchema>
 
-/** Re-parenting: moving a formation (and everything under it) elsewhere in the tree. */
+/**
+ * Re-parenting: moving a formation (and everything under it) elsewhere.
+ *
+ * `parentId` may be null, meaning "move to the top level". That is what
+ * makes every formation movable, NAS included — with a single fixed root
+ * there would be nowhere for the root itself to go.
+ */
 export const moveFormationSchema = z.object({
-  parentId: z.string().trim().min(1, "Pick the formation it should report to"),
+  parentId: z.string().trim().nullable().optional(),
+})
+
+/** Reordering siblings by dragging: the ids in their new order. */
+export const reorderFormationsSchema = z.object({
+  parentId: z.string().trim().nullable().optional(),
+  orderedIds: z.array(z.string().min(1)).min(1),
 })

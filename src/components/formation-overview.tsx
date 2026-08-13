@@ -12,7 +12,7 @@ import {
   RETURN_STATUS_LABEL,
   RETURN_STATUS_TONE,
 } from "@/lib/status"
-import { FORMATION_ROLE_LABEL, FORMATION_TYPE_TAG } from "@/lib/formation-labels"
+import { FORMATION_ROLE_LABEL } from "@/lib/formation-labels"
 import { StatTile } from "@/components/stat-tile"
 import { ReturnsTable } from "@/components/returns-table"
 import { RequestReturnButton } from "@/components/request-return-button"
@@ -76,10 +76,12 @@ export function FormationOverview({
     return true
   })
 
-  const organicRegiments = formation.children.filter((c) => c.type === "SIGNAL_REGIMENT")
-  const attachedSignals = formation.children.filter((c) => c.type === "BRIGADE_SIGNALS")
-  const otherChildren = formation.children.filter(
-    (c) => c.type !== "SIGNAL_REGIMENT" && c.type !== "BRIGADE_SIGNALS"
+  // Subordinates are one list now. They used to be split into "Organic
+  // Regiments" and "Attached Brigade Signals" by formation type, which is
+  // gone: the tree says who reports to whom, and that is the only
+  // classification the system acts on.
+  const children = [...formation.children].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
   )
 
   return (
@@ -88,9 +90,6 @@ export function FormationOverview({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-semibold">{formation.name}</h1>
-            <span className="rounded border border-border px-1.5 py-0.5 text-[11px] tracking-wide text-muted-foreground uppercase">
-              {FORMATION_TYPE_TAG[formation.type]}
-            </span>
             {formation.role && (
               <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
                 {FORMATION_ROLE_LABEL[formation.role]}
@@ -122,7 +121,6 @@ export function FormationOverview({
               formation={{
                 id: formation.id,
                 name: formation.name,
-                type: formation.type,
                 role: formation.role,
                 attachedTo: formation.attachedTo,
                 parentId: formation.parentId,
@@ -134,26 +132,11 @@ export function FormationOverview({
         </div>
       </div>
 
-      {formation.type === "SIGNAL_BRIGADE" && (organicRegiments.length > 0 || attachedSignals.length > 0) && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormationList
-            title="Organic Regiments (SR)"
-            description="Under this brigade's operational chain of command."
-            items={organicRegiments}
-          />
-          <FormationList
-            title="Attached Brigade Signals (BS)"
-            description="NAS chain of command, operationally detached elsewhere."
-            items={attachedSignals}
-          />
-        </div>
-      )}
-
-      {formation.type !== "SIGNAL_BRIGADE" && otherChildren.length > 0 && (
+      {children.length > 0 && (
         <FormationList
-          title="Subordinate Formations"
+          title={`Subordinate Formations (${children.length})`}
           description="Drill into any formation in your scope."
-          items={otherChildren}
+          items={children}
         />
       )}
 

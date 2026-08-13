@@ -19,9 +19,9 @@ function generatePassword(): string {
 async function main() {
   // Safe to re-run: refuse to double-seed once a ROOT formation exists,
   // rather than fail on a unique constraint partway through.
-  const existingRoot = await prisma.formation.findFirst({ where: { type: "ROOT" } })
+  const existingRoot = await prisma.formation.findFirst({ where: { parentId: null } })
   if (existingRoot) {
-    console.log("A ROOT formation already exists (skipping seed, already seeded).")
+    console.log("A top-level formation already exists (skipping seed, already seeded).")
     return
   }
 
@@ -32,8 +32,7 @@ async function main() {
 
   const nas = await prisma.formation.create({
     data: {
-      name: "Nigerian Army Signals (NAS)",
-      type: "ROOT",
+      name: "Nigerian Army Signals (NAS)",
       email: "nas@army.mil.ng",
       passwordHash: await bcrypt.hash(nasPassword, 10),
       privileges: [...ALL_PRIVILEGES],
@@ -42,8 +41,7 @@ async function main() {
 
   const admin = await prisma.formation.create({
     data: {
-      name: "NAS Systems Administration",
-      type: "COMMAND",
+      name: "NAS Systems Administration",
       parentId: nas.id,
       email: "admin@army.mil.ng",
       passwordHash: await bcrypt.hash(adminPassword, 10),

@@ -18,12 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  CREATABLE_FORMATION_TYPES,
-  FORMATION_ROLES,
-  formationFormSchema,
-} from "@/lib/validation/formation"
-import { FORMATION_ROLE_LABEL, FORMATION_TYPE_LABEL } from "@/lib/formation-labels"
+import { FORMATION_ROLES, formationFormSchema } from "@/lib/validation/formation"
+import { FORMATION_ROLE_LABEL } from "@/lib/formation-labels"
 import { PRIVILEGE_DESCRIPTIONS, PRIVILEGE_LABELS } from "@/lib/privileges"
 import { createFormationAction } from "@/lib/actions/formations"
 import type { FormationPickerOption } from "@/lib/formation"
@@ -41,7 +37,6 @@ export function FormationForm({
   const [errors, setErrors] = useState<Record<string, string | string[]>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [type, setType] = useState<string | undefined>(undefined)
   const [privileges, setPrivileges] = useState<Privilege[]>([])
   const [formKey, setFormKey] = useState(0)
 
@@ -65,7 +60,6 @@ export function FormationForm({
             return
           }
           toast.success(`"${result.data.name}" added to the formation tree.`)
-          setType(undefined)
           setPrivileges([])
           setFormKey((k) => k + 1)
           router.refresh()
@@ -74,25 +68,8 @@ export function FormationForm({
       className="grid gap-5"
     >
       <Field name="name">
-        <FieldLabel>Formation Name</FieldLabel>
+        <FieldLabel>Formation/Unit Name</FieldLabel>
         <Input name="name" placeholder="e.g. 522 Signal Regiment" required />
-        <FieldError />
-      </Field>
-
-      <Field name="type">
-        <FieldLabel>Type</FieldLabel>
-        <Select name="type" onValueChange={(v) => setType(v as string)}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select formation type" />
-          </SelectTrigger>
-          <SelectContent>
-            {CREATABLE_FORMATION_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {FORMATION_TYPE_LABEL[t]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <FieldError />
       </Field>
 
@@ -112,41 +89,40 @@ export function FormationForm({
         </Select>
         <FieldDescription>
           Chain of command (this is who the new formation reports to, not an operational
-          attachment).
+          attachment). It can be changed later by dragging in the tree.
         </FieldDescription>
         <FieldError />
       </Field>
 
-      {(type === "SIGNAL_REGIMENT" || type === "BRIGADE_SIGNALS") && (
-        <Field name="role">
-          <FieldLabel>Role</FieldLabel>
-          <Select name="role">
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              {FORMATION_ROLES.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {FORMATION_ROLE_LABEL[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldError />
-        </Field>
-      )}
+      {/* Role and attachment are optional descriptors, always offered rather
+          than revealed by a type: there is no formation type any more, so
+          nothing to key their visibility off. */}
+      <Field name="role">
+        <FieldLabel>Role (optional)</FieldLabel>
+        <Select name="role">
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="No role" />
+          </SelectTrigger>
+          <SelectContent>
+            {FORMATION_ROLES.map((r) => (
+              <SelectItem key={r} value={r}>
+                {FORMATION_ROLE_LABEL[r]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <FieldError />
+      </Field>
 
-      {type === "BRIGADE_SIGNALS" && (
-        <Field name="attachedTo">
-          <FieldLabel>Attached To</FieldLabel>
-          <Input name="attachedTo" placeholder="e.g. 4 Mechanised Infantry Brigade" />
-          <FieldDescription>
-            The (often non-Signals) corps brigade this unit operationally supports. Kept
-            separate from the chain of command above.
-          </FieldDescription>
-          <FieldError />
-        </Field>
-      )}
+      <Field name="attachedTo">
+        <FieldLabel>Attached To (optional)</FieldLabel>
+        <Input name="attachedTo" placeholder="e.g. 4 Mechanised Infantry Brigade" />
+        <FieldDescription>
+          A (often non-Signals) formation this unit operationally supports. Kept separate from
+          the chain of command above.
+        </FieldDescription>
+        <FieldError />
+      </Field>
 
       <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
         <Field name="email">
