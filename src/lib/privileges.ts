@@ -5,6 +5,7 @@ import type { Privilege } from "@prisma/client"
 // checked against Privilege (so a typo here fails to compile).
 export const ALL_PRIVILEGES = [
   "MANAGE_FORMATIONS",
+  "MOVE_FORMATIONS",
   "MANAGE_ACCOUNTS",
   "MANAGE_PRIVILEGES",
   "VERIFY_RETURNS",
@@ -13,6 +14,7 @@ export const ALL_PRIVILEGES = [
 
 export const PRIVILEGE_LABELS: Record<Privilege, string> = {
   MANAGE_FORMATIONS: "Manage formations",
+  MOVE_FORMATIONS: "Move formations",
   MANAGE_ACCOUNTS: "Manage accounts",
   MANAGE_PRIVILEGES: "Assign privileges",
   VERIFY_RETURNS: "Verify returns",
@@ -21,6 +23,7 @@ export const PRIVILEGE_LABELS: Record<Privilege, string> = {
 
 export const PRIVILEGE_DESCRIPTIONS: Record<Privilege, string> = {
   MANAGE_FORMATIONS: "Create new formations/units in the tree",
+  MOVE_FORMATIONS: "Drag formations to a new parent, or reorder them",
   MANAGE_ACCOUNTS: "Set up or reset another formation's login",
   MANAGE_PRIVILEGES: "Grant or revoke privileges on another formation",
   VERIFY_RETURNS: "Move a return item through the workflow (verify/flag/close/etc.)",

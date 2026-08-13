@@ -34,6 +34,9 @@ enum FormationRole {
 // privilege being granted — see src/lib/privileges.ts.
 enum Privilege {
   MANAGE_FORMATIONS // create new formations in the tree
+  MOVE_FORMATIONS // re-parent and reorder formations in the tree — separate from
+  // MANAGE_FORMATIONS because restructuring the chain of command changes who
+  // can see whose returns, which creating a new formation does not
   MANAGE_ACCOUNTS // set up / reset another formation's login
   MANAGE_PRIVILEGES // grant or revoke privileges on another formation
   VERIFY_RETURNS // move a return item through the workflow (verify/flag/close/etc.)

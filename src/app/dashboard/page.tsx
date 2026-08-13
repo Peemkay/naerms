@@ -13,7 +13,11 @@ export default async function DashboardPage({
   const { status, condition } = await searchParams
   const data = await getFormationOverviewData(session.user.id)
   const canManageFormations = session.user.privileges.includes("MANAGE_FORMATIONS")
-  const parentOptions = canManageFormations
+  // The Edit dialog can rename (MANAGE_FORMATIONS) and move (MOVE_FORMATIONS),
+  // so either privilege earns the button; each action still checks its own.
+  const canEditFormation =
+    canManageFormations || session.user.privileges.includes("MOVE_FORMATIONS")
+  const parentOptions = canEditFormation
     ? await getFormationOptionsInScope(session.user.id)
     : undefined
 
@@ -23,7 +27,7 @@ export default async function DashboardPage({
       basePath="/dashboard"
       filterStatus={status as ReturnStatus | undefined}
       filterCondition={condition as EquipmentCondition | undefined}
-      canManageFormations={canManageFormations}
+      canManageFormations={canEditFormation}
       parentOptions={parentOptions}
     />
   )
